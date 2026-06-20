@@ -1,0 +1,768 @@
+openapi: 3.1.0
+info:
+  title: Cravio API
+  version: 0.1.0-draft
+  description: >
+    Draft P0 contract for the Cravio influencer marketplace. This is a hand-authored
+    first draft to align mobile/admin development. In the running system, /api
+    generates this file from FastAPI + Pydantic and CI fails on drift (see ADR-0001/0002).
+    Covers Phase 1 P0: auth, onboarding, discovery, campaigns, applications, payouts,
+    notifications, admin. Escrow, subscriptions, contracts, AI tools, and ratings are Phase 2.
+servers:
+  - url: https://api.cravio.in/v1
+    description: Production
+  - url: http://localhost:8000/v1
+    description: Local
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Onboarding
+  - name: Discovery
+  - name: Campaigns
+  - name: Applications
+  - name: Payouts
+  - name: Notifications
+  - name: Admin
+  - name: System
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /auth/session:
+    post:
+      tags: [Auth]
+      summary: Exchange a Firebase ID token for a Cravio session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firebase_id_token]
+              properties:
+                firebase_id_token: { type: string }
+      responses:
+        "200":
+          description: Session issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/role:
+    post:
+      tags: [Auth]
+      summary: Set the user's role at onboarding (once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "200":
+          description: Role set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "409":
+          description: Role already set
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /influencers/me/profile:
+    put:
+      tags: [Onboarding]
+      summary: Create/update influencer profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InfluencerProfileInput" }
+      responses:
+        "200":
+          description: Profile saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InfluencerProfile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /influencers/me/verification:
+    post:
+      tags: [Onboarding]
+      summary: Connect a social platform and pull verified metrics
+      description: Triggers the VerificationProvider (Meta/YouTube), stores metrics + a snapshot, and may grant the verified badge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, oauth_code]
+              properties:
+                platform: { $ref: "#/components/schemas/Platform" }
+                oauth_code: { type: string }
+      responses:
+        "200":
+          description: Verified metrics stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VerifiedMetrics" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /brands/me/profile:
+    put:
+      tags: [Onboarding]
+      summary: Create/update brand profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrandProfileInput" }
+      responses:
+        "200":
+          description: Profile saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrandProfile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /discovery/influencers:
+    get:
+      tags: [Discovery]
+      summary: Search and filter influencers (brand-facing)
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: Fuzzy name/handle search (trigram) }
+        - { name: niche, in: query, schema: { type: array, items: { type: string } } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: platform, in: query, schema: { $ref: "#/components/schemas/Platform" } }
+        - { name: language, in: query, schema: { type: string } }
+        - { name: min_followers, in: query, schema: { type: integer } }
+        - { name: max_followers, in: query, schema: { type: integer } }
+        - { name: min_engagement, in: query, schema: { type: number } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: Paginated influencer results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/InfluencerCard" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /influencers/{influencerId}/portfolio:
+    get:
+      tags: [Discovery]
+      summary: My Influence portfolio for an influencer
+      parameters:
+        - { name: influencerId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Portfolio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Portfolio" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /campaigns/{campaignId}/shortlist:
+    post:
+      tags: [Discovery]
+      summary: Add an influencer to a campaign shortlist
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [influencer_id]
+              properties:
+                influencer_id: { type: string, format: uuid }
+      responses:
+        "204": { description: Added }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /campaigns:
+    post:
+      tags: [Campaigns]
+      summary: Create a campaign (brand)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignInput" }
+      responses:
+        "201":
+          description: Campaign created (draft)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    get:
+      tags: [Campaigns]
+      summary: List/browse campaigns (influencer feed or brand's own)
+      parameters:
+        - { name: mine, in: query, schema: { type: boolean }, description: Brand's own campaigns }
+        - { name: niche, in: query, schema: { type: array, items: { type: string } } }
+        - { name: type, in: query, schema: { $ref: "#/components/schemas/CampaignType" } }
+        - { name: min_pay, in: query, schema: { type: integer } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: Paginated campaigns (only matching ones are applyable for influencers)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/Campaign" }
+
+  /campaigns/{campaignId}:
+    get:
+      tags: [Campaigns]
+      summary: Get a campaign
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaign
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Campaigns]
+      summary: Edit a campaign (before first influencer selected)
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+        "409": { description: Locked — an influencer is already selected }
+
+  /campaigns/{campaignId}/publish:
+    post:
+      tags: [Campaigns]
+      summary: Publish a campaign (goes live)
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Live
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+
+  /campaigns/{campaignId}/applications:
+    post:
+      tags: [Applications]
+      summary: Apply to a campaign (influencer)
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pitch: { type: string }
+                proposed_rate: { type: integer, description: INR }
+      responses:
+        "201":
+          description: Application created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "403": { description: Influencer does not match campaign filters }
+        "409": { description: Already applied }
+    get:
+      tags: [Applications]
+      summary: List applicants for a campaign (brand) with verified metrics
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/ApplicationStatus" } }
+      responses:
+        "200":
+          description: Applicants
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApplicationWithMetrics" }
+
+  /applications/me:
+    get:
+      tags: [Applications]
+      summary: Influencer's application tracker
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Application" }
+
+  /applications/{applicationId}/status:
+    patch:
+      tags: [Applications]
+      summary: Update application status (brand)
+      parameters:
+        - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/ApplicationStatus" }
+      responses:
+        "200":
+          description: Updated (selection triggers a notification)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+
+  /applications/{applicationId}/deliverables:
+    post:
+      tags: [Payouts]
+      summary: Submit deliverables (influencer)
+      parameters:
+        - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [media_keys]
+              properties:
+                media_keys: { type: array, items: { type: string }, description: S3 object keys from pre-signed upload }
+                note: { type: string }
+      responses:
+        "200":
+          description: Submitted for approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+
+  /applications/{applicationId}/approve:
+    post:
+      tags: [Payouts]
+      summary: Approve delivered content and trigger payout (brand)
+      parameters:
+        - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Approved; payout initiated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payout" }
+
+  /payouts/methods:
+    put:
+      tags: [Payouts]
+      summary: Set influencer payout method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PayoutMethodInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PayoutMethod" }
+
+  /webhooks/razorpay:
+    post:
+      tags: [Payouts]
+      summary: Razorpay webhook (signature-verified, idempotent)
+      security: []
+      responses:
+        "200": { description: Acknowledged }
+
+  /media/presign:
+    post:
+      tags: [System]
+      summary: Get a pre-signed S3 upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content_type, purpose]
+              properties:
+                content_type: { type: string }
+                purpose: { type: string, enum: [profile_image, content_sample, deliverable] }
+      responses:
+        "200":
+          description: Pre-signed URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload_url: { type: string, format: uri }
+                  object_key: { type: string }
+
+  /notifications/device-tokens:
+    post:
+      tags: [Notifications]
+      summary: Register/refresh an FCM device token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, platform]
+              properties:
+                token: { type: string }
+                platform: { type: string, enum: [ios, android] }
+      responses:
+        "204": { description: Registered }
+
+  /admin/moderation/queue:
+    get:
+      tags: [Admin]
+      summary: Moderation queue (admin)
+      responses:
+        "200":
+          description: Flagged items
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ModerationItem" }
+
+  /admin/reports:
+    post:
+      tags: [Admin]
+      summary: Report a suspicious campaign (influencer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaign_id, reason]
+              properties:
+                campaign_id: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        "201": { description: Reported }
+
+  /admin/users/{userId}/ban:
+    post:
+      tags: [Admin]
+      summary: Ban a user (admin)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "204": { description: Banned }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated but not allowed (wrong role)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+      required: [code, message]
+
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        db: { type: boolean }
+        redis: { type: boolean }
+
+    Role:
+      type: string
+      enum: [influencer, brand, admin]
+
+    Platform:
+      type: string
+      enum: [instagram, youtube]
+
+    Session:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+        user: { $ref: "#/components/schemas/User" }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+        role_set: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    InfluencerProfileInput:
+      type: object
+      required: [niche, content_categories]
+      properties:
+        bio: { type: string }
+        niche: { type: array, items: { type: string } }
+        content_categories: { type: array, items: { type: string } }
+        city: { type: string }
+        state: { type: string }
+        languages: { type: array, items: { type: string } }
+
+    InfluencerProfile:
+      allOf:
+        - $ref: "#/components/schemas/InfluencerProfileInput"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            verified: { type: boolean }
+            metrics: { $ref: "#/components/schemas/VerifiedMetrics" }
+
+    VerifiedMetrics:
+      type: object
+      properties:
+        platform: { $ref: "#/components/schemas/Platform" }
+        followers: { type: integer }
+        reach: { type: integer }
+        engagement_rate: { type: number }
+        verified: { type: boolean }
+        snapshot_at: { type: string, format: date-time }
+
+    BrandProfileInput:
+      type: object
+      required: [company_name, industry]
+      properties:
+        company_name: { type: string }
+        industry: { type: string }
+        website: { type: string, format: uri }
+        gst: { type: string, description: Optional }
+
+    BrandProfile:
+      allOf:
+        - $ref: "#/components/schemas/BrandProfileInput"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            trust_badge: { type: boolean }
+
+    InfluencerCard:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        handle: { type: string }
+        niche: { type: array, items: { type: string } }
+        city: { type: string }
+        verified: { type: boolean }
+        metrics: { $ref: "#/components/schemas/VerifiedMetrics" }
+
+    Portfolio:
+      type: object
+      properties:
+        influencer_id: { type: string, format: uuid }
+        niche: { type: array, items: { type: string } }
+        metrics: { $ref: "#/components/schemas/VerifiedMetrics" }
+        collaborations:
+          type: array
+          items:
+            type: object
+            properties:
+              brand: { type: string }
+              campaign_title: { type: string }
+              completed_at: { type: string, format: date-time }
+              sample_media_keys: { type: array, items: { type: string } }
+        rating_avg: { type: number }
+
+    CampaignType:
+      type: string
+      enum: [paid, barter, performance]
+
+    CampaignStatus:
+      type: string
+      enum: [draft, live, closed]
+
+    CampaignInput:
+      type: object
+      required: [title, brief, type, budget_inr]
+      properties:
+        title: { type: string }
+        brief: { type: string }
+        requirements: { type: string }
+        type: { $ref: "#/components/schemas/CampaignType" }
+        budget_inr: { type: integer }
+        delivery_deadline: { type: string, format: date }
+        posting_deadline: { type: string, format: date }
+        max_influencers: { type: integer, default: 1 }
+        match_filters:
+          type: object
+          properties:
+            niche: { type: array, items: { type: string } }
+            cities: { type: array, items: { type: string } }
+            min_followers: { type: integer }
+            languages: { type: array, items: { type: string } }
+
+    Campaign:
+      allOf:
+        - $ref: "#/components/schemas/CampaignInput"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            brand_id: { type: string, format: uuid }
+            status: { $ref: "#/components/schemas/CampaignStatus" }
+            created_at: { type: string, format: date-time }
+
+    ApplicationStatus:
+      type: string
+      enum: [applied, under_review, selected, rejected, delivered, approved, paid]
+
+    Application:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        campaign_id: { type: string, format: uuid }
+        influencer_id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/ApplicationStatus" }
+        pitch: { type: string }
+        proposed_rate: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    ApplicationWithMetrics:
+      allOf:
+        - $ref: "#/components/schemas/Application"
+        - type: object
+          properties:
+            metrics: { $ref: "#/components/schemas/VerifiedMetrics" }
+
+    PayoutMethodInput:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [upi, bank, paytm] }
+        upi_id: { type: string }
+        account_number: { type: string }
+        ifsc: { type: string }
+
+    PayoutMethod:
+      allOf:
+        - $ref: "#/components/schemas/PayoutMethodInput"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            verified: { type: boolean }
+
+    Payout:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        application_id: { type: string, format: uuid }
+        amount_inr: { type: integer }
+        status: { type: string, enum: [initiated, processing, paid, failed] }
+        method: { type: string, enum: [upi, bank, paytm] }
+        created_at: { type: string, format: date-time }
+
+    ModerationItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [campaign, profile] }
+        target_id: { type: string, format: uuid }
+        reason: { type: string }
+        reported_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+
+    Page:
+      type: object
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
