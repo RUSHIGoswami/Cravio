@@ -3,15 +3,16 @@ from sqlalchemy import text
 
 from app.core.db import async_session
 from app.core.redis_client import redis_client
+from app.schemas.health import Health
 
 router = APIRouter()
 
 
-@router.get("/health")
-async def health() -> dict:
+@router.get("/health", response_model=Health, tags=["System"], summary="Health check")
+async def health() -> Health:
     db_ok = await _check_db()
     redis_ok = await _check_redis()
-    return {"status": "ok", "db": db_ok, "redis": redis_ok}
+    return Health(status="ok", db=db_ok, redis=redis_ok)
 
 
 async def _check_db() -> bool:
