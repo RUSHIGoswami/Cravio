@@ -62,7 +62,7 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
-      - run: alembic upgrade head
+      - run: python -m alembic upgrade head
       - run: pytest -q
 
   mobile:
