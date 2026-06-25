@@ -112,10 +112,12 @@ Extend `app/core/config.py` `Settings` with six flags, each
 | `search_service` | `SEARCH_SERVICE` |
 | `notification_service` | `NOTIFICATION_SERVICE` |
 
-`registry.py` exposes `get_auth_provider()`, `get_verification_provider()`, …
-Each reads its flag, lazily imports `live` when `== "live"`, otherwise returns
-the stub. Instances are cached (`functools.lru_cache`) since stubs are stateless
-singletons. The getters double as FastAPI dependencies; tests override via
+`registry.py` exposes `build_<provider>()` factories and matching
+`get_<provider>()` FastAPI dependency getters. Each `build_` reads its flag at
+call time (so tests can monkeypatch `settings`), lazily imports `live` when
+`== "live"`, otherwise returns a shared module-level stub singleton (stubs are
+stateless, so one instance is reused). The `get_` getters delegate to `build_`
+and are used as FastAPI dependencies; tests override via
 `app.dependency_overrides`. The six flags are documented in `.env.example`.
 
 ## Tests (TDD)
