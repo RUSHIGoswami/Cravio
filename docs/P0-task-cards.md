@@ -221,6 +221,14 @@ Content moderation queue; influencers flag suspicious campaigns; admin bans repe
 
 ## Launch (P0 gate)
 
+### L0 · Deploy pipeline
+**Package:** /infra · **Depends on:** F1, first deploy target 
+Add `.github/workflows/deploy.yml` triggered on `push: main` (and/or release tags). Reuse `ci.yml` via `workflow_call` as a pre-deploy build+smoke gate, then deploy. Auto-deploy to staging on `main`; gate production behind manual approval / release tag via GitHub Environments. (CI validation stays PR-only — see `infra/CLAUDE.md` "CI on PR, deploy on main".)
+**Acceptance criteria:**
+- `deploy.yml` runs only on `main` (and/or tags); it calls the CI workflow and aborts the deploy if that gate fails.
+- A push to `main` deploys to staging; production requires explicit approval/tag.
+- Secrets come from the secret manager / GitHub Environments, by name only.
+
 ### L1 · Store readiness + observability
 **Package:** /infra, /mobile · **Depends on:** all above 
 PostHog instrumentation for core funnels (onboarding, application, payout), crash/error reporting, uptime monitoring (99.5% target), iOS + Android store builds.
