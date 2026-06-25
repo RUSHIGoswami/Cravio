@@ -34,11 +34,13 @@ api/
 
 ## Run / test
 ```
+pip install -e ".[dev]"                 # all deps — runtime + dev — come from pyproject.toml only
 uvicorn app.main:app --reload          # dev server
 pytest                                  # tests
 alembic upgrade head                    # apply migrations
 python -m app.scripts.export_openapi    # regenerate /docs/openapi.yaml (wired into CI)
 ```
+See `README.md` for full local setup (Docker Postgres/Redis, `.env`, venv).
 
 ## P0 scope (this package)
 Auth/token verification, influencer + brand onboarding, influencer discovery (search + filters), campaign builder + lifecycle, application flow, direct payout (Razorpay, non-escrow), push notifications, verified-metrics read path (via stubbed then live VerificationProvider). See `/docs/P0-task-cards.md`.
