@@ -1,0 +1,19 @@
+# Normalize line endings: store everything as LF in the repo.
+# Prevents CRLF churn on Windows checkouts.
+* text=auto eol=lf
+
+# Binary / non-text files: never touch.
+*.docx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# Lockfiles are text but should stay LF and not be diff-noisy.
+package-lock.json -diff
