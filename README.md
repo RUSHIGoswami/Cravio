@@ -22,7 +22,15 @@ This is a **solo + AI-agent build**. The PRD (`docs/Cravio requirements.docx`) i
 /docs     PRD, ADRs, OpenAPI contract, task cards
 ```
 
-Each top-level package owns a `CLAUDE.md` describing its conventions, entry points, and how to run/test it, so Claude Code has local context per package.
+Each top-level package owns a `CLAUDE.md` (conventions/architecture, for agents) and a `README.md` (how to actually set up and run it, for humans).
+
+## Local setup
+
+1. One-time machine prerequisites (Node, Python 3.12, Docker Desktop, etc.): `docs/dev-setup.md`.
+2. Per-package setup/run/test steps:
+   - [`api/README.md`](api/README.md) — FastAPI backend (Docker Postgres/Redis, venv, migrations).
+   - [`mobile/README.md`](mobile/README.md) — Expo/React Native app.
+   - [`admin/README.md`](admin/README.md) / [`infra/README.md`](infra/README.md) — Phase 0 stubs, no code yet; explain current status.
 
 ## Committed stack (authoritative — see ADRs for rationale)
 

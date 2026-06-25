@@ -28,7 +28,7 @@ S3 + CloudFront, Postgres (with planned read replicas + PgBouncer), Redis, compu
 ## CI implementation (F1)
 Workflow: `.github/workflows/ci.yml`, runs on `pull_request` and `workflow_dispatch` (manual). It no longer runs on `push: main` — `main` is PR-protected, so the PR check already validates the merge result (a squash merge produces the same tree the PR tested). A `concurrency` group cancels superseded runs on the same ref, except on `main` (`cancel-in-progress` is false for `refs/heads/main`).
 - **detect-changes** — `dorny/paths-filter` diffs the PR against the base to decide which top-level packages changed; downstream jobs are skipped (not just no-op'd) when their package didn't change, keeping runs fast per ADR-0001.
-- **api** — only runs when `api/**` changed: `ruff check` + `pytest` on Python 3.12 (`api/requirements-dev.txt`).
+- **api** — only runs when `api/**` changed: `ruff check` + `pytest` on Python 3.12, installed via `pip install -e ".[dev]"` (`api/pyproject.toml` — single source of truth, no separate requirements file).
 - **mobile** — only runs when `mobile/**` changed: `eslint` + `jest` on Node 20 (`mobile/package.json`).
 - **secret-scan** — always runs (every PR/push, regardless of changed paths), via `gitleaks/gitleaks-action@v2` with full git history (`fetch-depth: 0`) so it catches secrets introduced anywhere in the diff. Fails the build on any finding.
 - **required-checks** — fans in `api`, `mobile`, `secret-scan` and fails if any of them failed; this is the single status check branch protection should require, so skipped (not-changed) jobs don't block merges but failures always do.
