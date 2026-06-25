@@ -79,5 +79,5 @@ CI (`.github/workflows/ci.yml`) runs all three of the above (plus `alembic upgra
 ## Troubleshooting
 
 - **`pytest`/`uvicorn` can't connect to Postgres/Redis** — containers aren't running (`docker compose up -d`) or your `.env` ports don't match the table in step 1.
-- **`ModuleNotFoundError: app`** — you're not in the activated venv, or `pip install -e ".[dev]"` wasn't run after pulling new dependencies.
+- **`ModuleNotFoundError: app`** — you're not in the activated venv, or `uv sync --frozen` wasn't run after pulling new dependencies.
 - **CI fails on "OpenAPI drift"** — you changed a route/schema but didn't run `python -m app.scripts.export_openapi` and commit the updated `docs/openapi.yaml`.

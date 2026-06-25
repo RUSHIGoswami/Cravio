@@ -34,7 +34,7 @@ api/
 
 ## Run / test
 ```
-pip install -e ".[dev]"                 # all deps — runtime + dev — come from pyproject.toml only
+uv sync --group dev                     # all deps — runtime + dev — come from pyproject.toml/uv.lock only
 uvicorn app.main:app --reload          # dev server
 pytest                                  # tests
 alembic upgrade head                    # apply migrations
