@@ -108,25 +108,33 @@ Tests-first for each stub. Stop when criteria are met.
 
 ---
 
-## F5 — Mobile app shell + generated API client + design-system bootstrap
+## F5 — Mobile app shell + generated API client + design system
+
+**Before running this — hand off the Claude Design system to code.** The design system has already been built in Claude Design from `docs/design-brief.md`. Get it into the repo so Claude Code implements your *real* tokens/components, not placeholders: in Claude Design, **Export → "Send to Claude Code"** (or **Export → "Handoff to Claude Code"** if you're not in a terminal). This creates a handoff bundle containing your design tokens, the component structure, layout hierarchy, and per-page intent — so Claude Code writes code against your actual component library instead of guessing from pixels. Run the F5 session with that bundle available. (After F5 lands, run `/design-sync` in Claude Code — v2.1.181+ — to push the implemented system back into Claude Design and keep the canvas in sync; the integration is two-way.)
+
+Repo-state note: `/mobile` currently holds only the F1 CI placeholder (`package.json` with jest+eslint and `__tests__/smoke.test.js`); `/api` already serves `GET /health`; `docs/openapi.yaml` is the FastAPI-generated contract.
 
 ```
-Read mobile/CLAUDE.md and docs/adr/0012-mobile-react-native.md before starting. The contract is docs/openapi.yaml.
+Read mobile/CLAUDE.md, docs/adr/0012-mobile-react-native.md, and docs/design-brief.md before starting. The API contract is docs/openapi.yaml (FastAPI-generated); /api already serves GET /health.
 
-Task: Boot the React Native app, generate the API client, and wire the design-system scaffold.
+Context: /mobile currently holds only the F1 CI placeholder (package.json with jest+eslint, __tests__/smoke.test.js). Turn it into a real React Native app WITHOUT breaking the existing mobile CI job. A Claude Design handoff bundle for Cravio's design system is provided — implement tokens and components FROM that bundle, not invented placeholders.
+
+Task: Boot the RN app, generate the API client, and implement the design system from the Claude Design handoff.
 
 Do:
-1. Scaffold /mobile as a React Native + TypeScript app. Decide Expo vs bare RN per ADR-0012 and record the choice in mobile/CLAUDE.md (default: Expo, plan to eject if Razorpay/Meta native modules require it).
-2. Generate a typed API client from docs/openapi.yaml (e.g. openapi-typescript + a fetch wrapper). Do not hand-write endpoint types. Add a script to regenerate it.
-3. Create a minimal theme/ for design tokens (colors, spacing, typography) structured to receive Claude Design's design-sync output later, plus one shared Button component consuming the tokens.
-4. Add a smoke screen that calls GET /health through the generated client and renders the result.
+1. Scaffold /mobile as React Native + TypeScript using Expo (per ADR-0012); record the Expo-vs-bare decision + eject criteria (Razorpay/Meta native modules) in mobile/CLAUDE.md. Keep the existing eslint+jest CI job green.
+2. Generate a typed API client from docs/openapi.yaml (openapi-typescript + a typed fetch wrapper). Add an npm script `gen:api` to regenerate it. Never hand-write endpoint types. Base URL from env config (http://localhost:8000 locally), not hardcoded.
+3. Implement the design system from the Claude Design handoff bundle into src/theme/ (color incl. the verified/success green, typography, spacing, radius, elevation; light + dark) and a shared component library. Build the shared <Button> from the bundle's component + tokens (primary/secondary/disabled/loading states). Components consume tokens only — no ad-hoc hex.
+4. Add a smoke screen that calls GET /health via the generated client and renders status/db/redis.
+5. Tests: a component test for <Button> (renders, disabled/loading), and an integration test for the health call against a mocked client.
 
 Acceptance criteria:
-- App builds and runs on iOS simulator and Android emulator.
-- The generated API client compiles and calls GET /health against the local API.
-- A Button from the shared component library renders using tokens from theme/.
+- App builds and runs on an Android emulator (iOS optional now — needs macOS or Expo EAS; note this, don't block on it).
+- The generated client compiles and calls GET /health against the local /api; `gen:api` reproduces it with no diff.
+- src/theme tokens and <Button> come from the Claude Design handoff (not invented); a grep for hardcoded hex in components returns nothing.
+- mobile lint + tests pass in CI (the existing job stays green); no CRLF churn (.gitattributes in effect); no node_modules/build artifacts committed.
 
-Tests-first where practical (component test for Button, integration test for the health call against a mocked client). Stop when criteria are met.
+Tests-first where practical. Do NOT build feature screens — those are A2/A4 onward. Stop when criteria are met and summarize the diff.
 ```
 
 ---

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cravio — Build Status</title>
+<style>
+  :root{
+    --primary:#2D5BFF; --success:#1FB87A; --warn:#F5A524; --pending:#9AA4B2;
+    --bg:#0E1220; --surface:#171C2E; --surface2:#1F2640; --border:#2A3350;
+    --text:#EAEEF7; --text2:#9AA4B2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;background:var(--bg);color:var(--text);padding:32px 20px;}
+  .wrap{max-width:1040px;margin:0 auto;}
+  h1{font-size:26px;margin:0 0 2px;letter-spacing:-.3px}
+  .sub{color:var(--text2);font-size:14px;margin-bottom:22px}
+  .bar{height:12px;border-radius:99px;background:var(--surface2);overflow:hidden;margin:14px 0 6px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--primary),var(--success));}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--text2);font-size:13px;margin-bottom:28px}
+  .meta b{color:var(--text)}
+  .section{margin-bottom:26px}
+  .section h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin:0 0 12px;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 15px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pending)}
+  .card.done::before{background:var(--success)}
+  .card.progress::before{background:var(--primary)}
+  .card.blocked::before{background:#E5484D}
+  .id{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.04em}
+  .title{font-size:14.5px;font-weight:600;margin:3px 0 10px;line-height:1.3}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:99px}
+  .badge .dot{width:7px;height:7px;border-radius:50%}
+  .b-done{background:rgba(31,184,122,.14);color:var(--success)} .b-done .dot{background:var(--success)}
+  .b-progress{background:rgba(45,91,255,.16);color:#7E9BFF} .b-progress .dot{background:var(--primary)}
+  .b-pending{background:rgba(154,164,178,.13);color:var(--text2)} .b-pending .dot{background:var(--pending)}
+  .b-blocked{background:rgba(229,72,77,.14);color:#FF7A7E} .b-blocked .dot{background:#E5484D}
+  .dep{font-size:11.5px;color:var(--text2);margin-top:8px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--text2);margin-bottom:24px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .note{font-size:12px;color:var(--text2);margin-top:30px;border-top:1px solid var(--border);padding-top:14px;line-height:1.6}
+  code{background:var(--surface2);padding:1px 6px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cravio — Build Status</h1>
+  <div class="sub">Phase 1 (MVP) progress · update the <code>CARDS</code> array at the bottom of this file as work lands</div>
+
+  <div class="bar"><i id="prog"></i></div>
+  <div class="meta">
+    <span><b id="pct">0%</b> complete</span>
+    <span><b id="done">0</b> done</span>
+    <span><b id="inprog">0</b> in progress</span>
+    <span><b id="pend">0</b> pending</span>
+    <span><b id="block">0</b> blocked</span>
+    <span>Last updated: <b id="updated"></b></span>
+  </div>
+
+  <div class="legend">
+    <span><span class="badge b-done"><span class="dot"></span>Done</span></span>
+    <span><span class="badge b-progress"><span class="dot"></span>In progress</span></span>
+    <span><span class="badge b-pending"><span class="dot"></span>Pending</span></span>
+    <span><span class="badge b-blocked"><span class="dot"></span>Blocked</span></span>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="note">
+    Source of truth is the repo, not this file — keep it in sync by hand (or wire it to GitHub later).
+    Cards mirror <code>docs/P0-task-cards.md</code>. Foundation F1–F5 gate the feature cards; finish all P0 before any P1.
+  </div>
+</div>
+
+<script>
+// ---- EDIT THIS as cards land. status: "done" | "progress" | "pending" | "blocked" ----
+const UPDATED = "2026-06-25";
+const CARDS = [
+  { section:"Foundation", id:"F1", title:"Monorepo + CI skeleton", status:"done" },
+  { section:"Foundation", id:"F2", title:"API app + DB + migration baseline", status:"done" },
+  { section:"Foundation", id:"F3", title:"OpenAPI export + drift check", status:"done" },
+  { section:"Foundation", id:"F4", title:"Provider interfaces + stubs", status:"done" },
+  { section:"Foundation", id:"F5", title:"Mobile shell + API client + design tokens", status:"pending", dep:"next up" },
+
+  { section:"Auth & Onboarding", id:"A1", title:"Social sign-up + role selection (API)", status:"pending", dep:"F4" },
+  { section:"Auth & Onboarding", id:"A2", title:"Social sign-up + role selection (mobile)", status:"pending", dep:"A1, F5" },
+  { section:"Auth & Onboarding", id:"A3", title:"Influencer profile + verification connect (API)", status:"pending", dep:"A1, F4" },
+  { section:"Auth & Onboarding", id:"A4", title:"Influencer onboarding flow (mobile)", status:"pending", dep:"A3, A2" },
+  { section:"Auth & Onboarding", id:"A5", title:"Brand profile setup (API + mobile)", status:"pending", dep:"A1, A2" },
+
+  { section:"Discovery", id:"D1", title:"Search + filters + location (API)", status:"pending", dep:"A3" },
+  { section:"Discovery", id:"D2", title:"Verified metrics + portfolio (API)", status:"pending", dep:"A3" },
+  { section:"Discovery", id:"D3", title:"Discovery + shortlist UI", status:"pending", dep:"D1, D2, A5" },
+
+  { section:"Campaigns", id:"C1", title:"Campaign builder + types + deadlines (API)", status:"pending", dep:"A5" },
+  { section:"Campaigns", id:"C2", title:"Campaign builder UI (mobile + web)", status:"pending", dep:"C1" },
+
+  { section:"Influencer Tools", id:"E1", title:"Campaign discovery feed (API + mobile)", status:"pending", dep:"C1, A4" },
+  { section:"Influencer Tools", id:"E2", title:"Application flow + tracker (API)", status:"pending", dep:"E1, C1" },
+  { section:"Influencer Tools", id:"E3", title:"Application UI + tracker (mobile)", status:"pending", dep:"E2" },
+  { section:"Influencer Tools", id:"E4", title:"My Influence portfolio (API + mobile)", status:"pending", dep:"A3" },
+
+  { section:"Payments", id:"P1", title:"Direct payout + methods (API)", status:"pending", dep:"E2, F4" },
+  { section:"Payments", id:"P2", title:"Delivery + approval + payout UX", status:"pending", dep:"P1" },
+
+  { section:"Notifications", id:"G1", title:"Push notifications (API + mobile)", status:"pending", dep:"F4, A2" },
+
+  { section:"Admin", id:"M1", title:"Moderation, reporting, banning", status:"pending", dep:"F2, A1" },
+
+  { section:"Launch", id:"L1", title:"Store readiness + observability", status:"pending", dep:"all P0" },
+];
+// ---------------------------------------------------------------------------------------
+
+const LABEL = {done:"Done", progress:"In progress", pending:"Pending", blocked:"Blocked"};
+const counts = {done:0, progress:0, pending:0, blocked:0};
+CARDS.forEach(c => counts[c.status]++);
+const total = CARDS.length;
+const pct = Math.round((counts.done / total) * 100);
+
+document.getElementById("prog").style.width = pct + "%";
+document.getElementById("pct").textContent = pct + "%";
+document.getElementById("done").textContent = counts.done;
+document.getElementById("inprog").textContent = counts.progress;
+document.getElementById("pend").textContent = counts.pending;
+document.getElementById("block").textContent = counts.blocked;
+document.getElementById("updated").textContent = UPDATED;
+
+const board = document.getElementById("board");
+const sections = [...new Set(CARDS.map(c => c.section))];
+sections.forEach(sec => {
+  const items = CARDS.filter(c => c.section === sec);
+  const sEl = document.createElement("div");
+  sEl.className = "section";
+  const doneN = items.filter(i=>i.status==="done").length;
+  sEl.innerHTML = `<h2>${sec} &nbsp;·&nbsp; ${doneN}/${items.length}</h2>`;
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  items.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "card " + c.status;
+    el.innerHTML =
+      `<div class="id">${c.id}</div>
+       <div class="title">${c.title}</div>
+       <span class="badge b-${c.status}"><span class="dot"></span>${LABEL[c.status]}</span>
+       ${c.dep ? `<div class="dep">depends on: ${c.dep}</div>` : ""}`;
+    grid.appendChild(el);
+  });
+  sEl.appendChild(grid);
+  board.appendChild(sEl);
+});
+</script>
+</body>
+</html>
