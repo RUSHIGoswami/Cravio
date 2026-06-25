@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Avatar } from '../components/data-display/Avatar';
 import { VerifiedBadge } from '../components/data-display/VerifiedBadge';
@@ -20,13 +21,31 @@ const STATS: [string, string][] = [
 /** My Influence — creator portfolio: profile header + earnings + applications. */
 export function PortfolioScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('activity');
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bgBase }}>
       <View style={{ backgroundColor: theme.colors.bgSurface, borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: theme.spacing[3] }}>
-          <Icons.Settings size={22} color={theme.colors.textSecondary} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.spacing[5], paddingTop: insets.top + 14, paddingBottom: 4 }}>
+          <Text style={{ ...theme.typography.textStyles.h3, color: theme.colors.textPrimary }}>My Influence</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            style={({ pressed }) => ({
+              width: 40,
+              height: 40,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: theme.radius.pill,
+              backgroundColor: theme.colors.bgSubtle,
+              borderWidth: 1.5,
+              borderColor: theme.colors.borderSubtle,
+              transform: [{ scale: pressed ? 0.94 : 1 }],
+            })}
+          >
+            <Icons.Settings size={20} color={theme.colors.textSecondary} />
+          </Pressable>
         </View>
         <View style={{ flexDirection: 'row', gap: theme.spacing[4], alignItems: 'center', paddingHorizontal: theme.spacing[4], paddingBottom: theme.spacing[4] }}>
           <Avatar name="Aanya R" size={64} verified />

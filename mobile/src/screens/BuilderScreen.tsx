@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Button } from '../components/buttons/Button';
 import { IconButton } from '../components/buttons/IconButton';
@@ -19,6 +20,7 @@ export interface BuilderScreenProps {
 /** 5-step campaign builder (brand side) — stepper + per-step forms. */
 export function BuilderScreen({ onClose }: BuilderScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [niches, setNiches] = useState<Record<string, boolean>>({ Fashion: true });
   const toggle = (k: string) => setNiches((s) => ({ ...s, [k]: !s[k] }));
@@ -34,7 +36,7 @@ export function BuilderScreen({ onClose }: BuilderScreenProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bgSurface }}>
-      <View style={{ padding: theme.spacing[4], borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle }}>
+      <View style={{ paddingHorizontal: theme.spacing[4], paddingTop: insets.top + theme.spacing[4], paddingBottom: theme.spacing[4], borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: theme.spacing[4] }}>
           <IconButton variant="ghost" label="Back" onPress={() => (step > 0 ? setStep(step - 1) : onClose?.())}>
             <Icons.Back size={20} color={theme.colors.textSecondary} />

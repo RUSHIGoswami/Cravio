@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Tabs } from '../components/navigation/Tabs';
 import { CampaignTile } from '../components/marketplace/CampaignTile';
@@ -11,6 +12,7 @@ import { CAMPAIGNS } from '../data/demo';
 /** Campaign feed — creator browsing brand campaigns. The + FAB opens the builder. */
 export function CampaignsScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [tab, setTab] = useState('foryou');
   const appliedCount = useMemo(() => CAMPAIGNS.filter((c) => c.status).length, []);
@@ -18,7 +20,7 @@ export function CampaignsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bgBase }}>
-      <View style={{ paddingHorizontal: theme.spacing[4], paddingTop: theme.spacing[4], backgroundColor: theme.colors.bgSurface, borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle }}>
+      <View style={{ paddingHorizontal: theme.spacing[4], paddingTop: insets.top + theme.spacing[4], backgroundColor: theme.colors.bgSurface, borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle }}>
         <Text style={{ ...theme.typography.textStyles.h1, color: theme.colors.textPrimary, marginBottom: theme.spacing[3] }}>Campaigns</Text>
         <Tabs
           value={tab}

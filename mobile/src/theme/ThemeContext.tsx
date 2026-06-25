@@ -13,7 +13,10 @@ export function ThemeProvider({
   scheme?: 'light' | 'dark';
 }) {
   const osScheme = useColorScheme();
-  const theme = useMemo(() => themes[scheme ?? osScheme ?? 'light'], [scheme, osScheme]);
+  const theme = useMemo(
+    () => themes[scheme ?? (osScheme === 'dark' ? 'dark' : 'light')],
+    [scheme, osScheme],
+  );
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 

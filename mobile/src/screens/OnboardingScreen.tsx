@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Button } from '../components/buttons/Button';
 import { Input } from '../components/forms/Input';
@@ -15,6 +16,7 @@ export interface OnboardingScreenProps {
 /** Onboarding — influencer sign-up + verification handoff. */
 export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [handle, setHandle] = useState('');
   const [niches, setNiches] = useState<Record<string, boolean>>({ Fashion: true, Beauty: true });
@@ -22,7 +24,7 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bgSurface }}>
-      <ScrollView contentContainerStyle={{ padding: theme.spacing[5], paddingTop: theme.spacing[7], gap: theme.spacing[5] }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing[5], paddingTop: insets.top + theme.spacing[7], gap: theme.spacing[5] }}>
         <Text style={{ ...theme.typography.textStyles.display, color: theme.colors.textPrimary }}>
           Get verified,{'\n'}get paid.
         </Text>

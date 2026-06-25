@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from '../components/forms/Input';
 import { Chip } from '../components/forms/Chip';
@@ -14,6 +15,7 @@ const NICHE_FILTERS = ['Fashion', 'Food', 'Tech'];
 /** Discovery feed + filters — brand searching for creators. */
 export function DiscoverScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<Record<string, boolean>>({ Verified: true, Fashion: false, Food: false, Tech: false });
   const [saved, setSaved] = useState<Record<string, boolean>>({});
@@ -30,7 +32,7 @@ export function DiscoverScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bgBase }}>
-      <View style={{ padding: theme.spacing[4], paddingBottom: theme.spacing[3], backgroundColor: theme.colors.bgSurface, borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle, gap: theme.spacing[3] }}>
+      <View style={{ paddingHorizontal: theme.spacing[4], paddingTop: insets.top + theme.spacing[4], paddingBottom: theme.spacing[3], backgroundColor: theme.colors.bgSurface, borderBottomWidth: 1.5, borderBottomColor: theme.colors.borderSubtle, gap: theme.spacing[3] }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ ...theme.typography.textStyles.h1, color: theme.colors.textPrimary }}>Discover</Text>
           <IconButton variant="ghost" label="Notifications">

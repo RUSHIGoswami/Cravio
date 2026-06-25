@@ -11,10 +11,10 @@ docker compose up -d
 
 This starts two containers defined in `api/docker-compose.yml`:
 
-| Service  | Local port | Credentials |
-|----------|------------|-------------|
+| Service  | Local port | Credentials                      |
+| -------- | ---------- | -------------------------------- |
 | Postgres | `55432`    | `cravio` / `cravio`, db `cravio` |
-| Redis    | `56379`    | none |
+| Redis    | `56379`    | none                             |
 
 Check they're healthy: `docker compose ps` (both should show `healthy`).
 
@@ -26,11 +26,13 @@ All dependencies — runtime **and** dev/test tooling — live in `pyproject.tom
 
 ```bash
 cd api
-python -m venv .venv
+uv venv
+
 .venv\Scripts\activate          # Windows
 # source .venv/bin/activate     # macOS/Linux
 
-pip install -e ".[dev]"
+uv sync --frozen
+
 ```
 
 `.venv/` is git-ignored — safe to delete and recreate any time.
