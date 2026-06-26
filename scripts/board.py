@@ -1,28 +1,20 @@
 #!/usr/bin/env python3
 """Cravio GitHub Projects board toolkit.
 
-One source of truth for *structure* is docs/backlog.yaml (cards + dependencies).
-One source of truth for *status* is the GitHub Projects board ("Status" field:
-Not started / Active / Released).
+Structure (cards + dependencies) lives in docs/backlog.yaml.
+Status (board column) lives on the GitHub Projects board: Not started/Active/Released.
 
-Commands
---------
-  python scripts/board.py setup     Create labels, issues, and the project board
-                                     from backlog.yaml. Idempotent: safe to re-run.
-  python scripts/board.py next      Read live board status + deps and print the
-                                     cards that are unblocked and ready to start.
-  python scripts/board.py status    Print every card grouped by board column.
+Commands:
+  setup        Create labels, issues, and the project board from backlog.yaml (idempotent).
+  next         Print cards whose dependencies are all Released (your "what's next").
+  status       Print every card grouped by board column.
+  brief ID     Print a paste-ready agent brief for a card. Add --sdd for heavy cards.
 
-Requirements
-------------
-  - GitHub CLI installed and authenticated:  gh auth login
-  - Project scope granted:                    gh auth refresh -s project --hostname github.com
-  - PyYAML:                                   pip install pyyaml
+Requires: gh (authed, with `gh auth refresh -s project`), and `pip install pyyaml`.
 """
-
 from __future__ import annotations
-
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -35,78 +27,80 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 BACKLOG = ROOT / "docs" / "backlog.yaml"
 CARDS_DOC = "docs/P0-task-cards.md"
+DOT = "·"  # middle dot in card titles: "A1 · Title"
 
-# Board column names -> the meaning we use in the resolver.
 DONE_NAMES = {"Released", "Done"}
 ACTIVE_NAMES = {"Active", "In Progress"}
-# When setup runs, built-in options are still Todo/In Progress/Done.
-# We map our column names onto whatever the project currently has.
 COLUMN_ALIASES = {
     "Not started": ["Not started", "Todo", "To do"],
     "Active": ["Active", "In Progress"],
     "Released": ["Released", "Done"],
 }
+ADR_BY_LABEL = {
+    "auth": "docs/adr/0004-auth-firebase.md",
+    "payments": "docs/adr/0005-payments-razorpay.md",
+    "discovery": "docs/adr/0009-search-postgres-algolia.md",
+}
+ADR_BY_ID = {
+    "A3": "docs/adr/0008-social-meta-youtube-api.md",
+    "E4": "docs/adr/0006-media-s3-cloudfront.md",
+    "G1": "docs/adr/0010-push-fcm.md",
+    "L1": "docs/adr/0011-analytics-posthog.md",
+}
+PROVIDER_BY_LABEL = {
+    "auth": ("AuthProvider", "api/app/services/auth/"),
+    "payments": ("PaymentProvider", "api/app/services/payment/"),
+    "discovery": ("SearchService", "api/app/services/search/"),
+}
+PROVIDER_BY_ID = {
+    "A3": ("VerificationProvider", "api/app/services/verification/"),
+    "G1": ("NotificationService", "api/app/services/notification/"),
+}
 
 
-# --------------------------------------------------------------------------- #
-# gh helpers
-# --------------------------------------------------------------------------- #
-def gh(*args: str, check: bool = True, capture: bool = True) -> str:
-    """Run a gh command, return stdout."""
-    proc = subprocess.run(
-        ["gh", *args],
-        text=True,
-        capture_output=capture,
-    )
+def gh(*args, check=True):
+    proc = subprocess.run(["gh", *args], text=True, capture_output=True)
     if check and proc.returncode != 0:
-        sys.exit(f"gh {' '.join(args)}\n{proc.stderr.strip()}")
+        sys.exit("gh " + " ".join(args) + "\n" + proc.stderr.strip())
     return (proc.stdout or "").strip()
 
 
-def gh_json(*args: str):
+def gh_json(*args):
     return json.loads(gh(*args))
 
 
-def preflight() -> None:
+def preflight():
     if subprocess.run(["gh", "--version"], capture_output=True).returncode != 0:
-        sys.exit("GitHub CLI not found. Install it: https://cli.github.com/")
+        sys.exit("GitHub CLI not found: https://cli.github.com/")
     if subprocess.run(["gh", "auth", "status"], capture_output=True).returncode != 0:
         sys.exit("Not logged in. Run:  gh auth login")
 
 
-def load_backlog() -> dict:
+def load_backlog():
     with open(BACKLOG, encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
 
-def card_title(card: dict) -> str:
-    return f"{card['id']} · {card['title']}"
+def card_title(card):
+    return card["id"] + " " + DOT + " " + card["title"]
 
 
-def card_id_from_title(title: str) -> str | None:
-    token = title.split("·", 1)[0].strip() if "·" in title else title.split()[0]
-    return token or None
+def card_id_from_title(title):
+    head = title.split(DOT, 1)[0] if DOT in title else title
+    parts = head.split()
+    return parts[0] if parts else ""
 
 
-# --------------------------------------------------------------------------- #
-# setup
-# --------------------------------------------------------------------------- #
-def ensure_labels(cards: list[dict]) -> None:
+def ensure_labels(cards):
     labels = sorted({lbl for c in cards for lbl in c.get("labels", [])})
-    print(f"Ensuring {len(labels)} labels ...")
+    print("Ensuring " + str(len(labels)) + " labels ...")
     for lbl in labels:
-        subprocess.run(
-            ["gh", "label", "create", lbl, "--force"],
-            capture_output=True, text=True,
-        )
+        subprocess.run(["gh", "label", "create", lbl, "--force"], capture_output=True, text=True)
 
 
-def existing_issue_numbers(repo: str) -> dict[str, dict]:
-    """Map card id -> issue dict, for issues already created by this tool."""
-    items = gh_json(
-        "issue", "list", "--repo", repo, "--state", "all", "--limit", "300",
-        "--json", "number,title,url",
-    )
+def existing_issue_numbers(repo):
+    items = gh_json("issue", "list", "--repo", repo, "--state", "all",
+                    "--limit", "300", "--json", "number,title,url")
     out = {}
     for it in items:
         cid = card_id_from_title(it["title"])
@@ -115,9 +109,9 @@ def existing_issue_numbers(repo: str) -> dict[str, dict]:
     return out
 
 
-def ensure_issues(repo: str, cards: list[dict]) -> dict[str, dict]:
+def ensure_issues(repo, cards):
     existing = existing_issue_numbers(repo)
-    result: dict[str, dict] = {}
+    result = {}
     for card in cards:
         cid = card["id"]
         if cid in existing:
@@ -125,35 +119,27 @@ def ensure_issues(repo: str, cards: list[dict]) -> dict[str, dict]:
             continue
         deps = ", ".join(card.get("depends_on", [])) or "none"
         pkgs = ", ".join(card.get("package", []))
-        body = (
-            f"{card['body'].strip()}\n\n"
-            f"**Package:** {pkgs}\n"
-            f"**Depends on:** {deps}\n\n"
-            f"Full acceptance criteria: [`{CARDS_DOC}`](../blob/main/{CARDS_DOC}) "
-            f"(card {cid})."
-        )
-        label_args: list[str] = []
+        body = (card["body"].strip() + "\n\n**Package:** " + pkgs
+                + "\n**Depends on:** " + deps
+                + "\n\nFull acceptance criteria: `" + CARDS_DOC + "` (card " + cid + ").")
+        label_args = []
         for lbl in card.get("labels", []):
             label_args += ["--label", lbl]
-        url = gh(
-            "issue", "create", "--repo", repo,
-            "--title", card_title(card),
-            "--body", body,
-            *label_args,
-        )
+        url = gh("issue", "create", "--repo", repo, "--title", card_title(card),
+                 "--body", body, *label_args)
         url = url.splitlines()[-1].strip()
-        print(f"  created {cid}: {url}")
+        print("  created " + cid + ": " + url)
         result[cid] = {"url": url, "title": card_title(card)}
     return result
 
 
-def ensure_project(meta: dict) -> dict:
+def ensure_project(meta):
     title = meta["project_title"]
     projects = gh_json("project", "list", "--owner", "@me", "--format", "json")["projects"]
     for p in projects:
         if p["title"] == title:
             return p
-    print(f"Creating project: {title}")
+    print("Creating project: " + title)
     gh("project", "create", "--owner", "@me", "--title", title)
     projects = gh_json("project", "list", "--owner", "@me", "--format", "json")["projects"]
     for p in projects:
@@ -162,18 +148,16 @@ def ensure_project(meta: dict) -> dict:
     sys.exit("Project creation failed.")
 
 
-def status_field(project_number: int) -> dict:
-    fields = gh_json(
-        "project", "field-list", str(project_number),
-        "--owner", "@me", "--format", "json",
-    )["fields"]
+def status_field(project_number):
+    fields = gh_json("project", "field-list", str(project_number),
+                     "--owner", "@me", "--format", "json")["fields"]
     for f in fields:
         if f["name"] == "Status":
             return f
-    sys.exit("No 'Status' field on the project (unexpected for a new Projects v2 board).")
+    sys.exit("No 'Status' field on the project.")
 
 
-def option_id(field: dict, column: str) -> str | None:
+def option_id(field, column):
     by_name = {o["name"]: o["id"] for o in field.get("options", [])}
     for alias in COLUMN_ALIASES[column]:
         if alias in by_name:
@@ -181,28 +165,23 @@ def option_id(field: dict, column: str) -> str | None:
     return None
 
 
-def add_items_and_set_status(project: dict, field: dict, cards: list[dict],
-                             issues: dict[str, dict], released: set[str]) -> None:
+def add_items_and_set_status(project, field, cards, issues, released):
     pid = project["id"]
     pnum = project["number"]
-    items = gh_json("project", "item-list", str(pnum), "--owner", "@me",
-                    "--format", "json")["items"]
+    items = gh_json("project", "item-list", str(pnum), "--owner", "@me", "--format", "json")["items"]
     item_by_card = {}
     for it in items:
         content = it.get("content") or {}
         cid = card_id_from_title(content.get("title", ""))
         if cid:
             item_by_card[cid] = it
-
     for card in cards:
         cid = card["id"]
         if cid not in item_by_card:
-            url = issues[cid]["url"]
             out = gh_json("project", "item-add", str(pnum), "--owner", "@me",
-                          "--url", url, "--format", "json")
+                          "--url", issues[cid]["url"], "--format", "json")
             item_by_card[cid] = out
-            print(f"  added {cid} to board")
-
+            print("  added " + cid + " to board")
     rel_opt = option_id(field, "Released")
     new_opt = option_id(field, "Not started")
     for card in cards:
@@ -213,95 +192,76 @@ def add_items_and_set_status(project: dict, field: dict, cards: list[dict],
             continue
         gh("project", "item-edit", "--id", item_id, "--project-id", pid,
            "--field-id", field["id"], "--single-select-option-id", target)
-    print("  initial statuses set (released cards -> Released, rest -> Not started)")
+    print("  initial statuses set (released -> Released, rest -> Not started)")
 
 
-def cmd_setup() -> None:
+def setup_checklist():
+    return ("\nOne-time UI polish (~1 min, makes 'Released' automatic):\n"
+            "  1. Open the project -> board view -> group by Status.\n"
+            "  2. Rename columns if needed: Todo->Not started, In Progress->Active, Done->Released.\n"
+            "  3. Project menu -> Workflows: enable 'When issue closed -> Status = Released'.\n"
+            "     Then any PR that says 'Closes #<n>' moves its card on merge.\n"
+            "  4. Optional: enable 'When issue reopened -> Active'.\n")
+
+
+def cmd_setup():
     preflight()
     data = load_backlog()
     meta, cards = data["meta"], data["cards"]
-    repo = meta["repo"]
     released = set(meta.get("released", []))
-
     ensure_labels(cards)
-    issues = ensure_issues(repo, cards)
+    issues = ensure_issues(meta["repo"], cards)
     project = ensure_project(meta)
     field = status_field(project["number"])
     add_items_and_set_status(project, field, cards, issues, released)
-
-    print("\n✅ Board ready:", project.get("url", f"project #{project['number']}"))
-    print(textwrap_dedent_checklist())
-
-
-def textwrap_dedent_checklist() -> str:
-    return (
-        "\nOne-time UI polish (≈1 min, makes 'Released' automatic):\n"
-        "  1. Open the project → board view → group by Status.\n"
-        "  2. Rename the columns if needed: Todo→Not started, In Progress→Active,\n"
-        "     Done→Released. (Renaming keeps option IDs, so set statuses persist.)\n"
-        "  3. Project ▸ ⋯ ▸ Workflows: enable 'When issue is closed → set Status =\n"
-        "     Released'. Then any PR that says 'Closes #<n>' moves its card on merge.\n"
-        "  4. Optional: enable 'When issue is reopened → Active'.\n"
-    )
+    print("\nBoard ready: " + project.get("url", "project #" + str(project["number"])))
+    print(setup_checklist())
 
 
-# --------------------------------------------------------------------------- #
-# next / status
-# --------------------------------------------------------------------------- #
-def read_board(meta: dict) -> dict[str, str]:
-    """Return card_id -> column name, from live board status."""
+def read_board(meta):
     projects = gh_json("project", "list", "--owner", "@me", "--format", "json")["projects"]
     proj = next((p for p in projects if p["title"] == meta["project_title"]), None)
     if not proj:
         sys.exit("Board not found. Run:  python scripts/board.py setup")
-    items = gh_json("project", "item-list", str(proj["number"]), "--owner", "@me",
-                    "--format", "json")["items"]
-    out: dict[str, str] = {}
+    items = gh_json("project", "item-list", str(proj["number"]), "--owner", "@me", "--format", "json")["items"]
+    out = {}
     for it in items:
         content = it.get("content") or {}
         cid = card_id_from_title(content.get("title", ""))
-        if not cid:
-            continue
-        out[cid] = it.get("status") or "Not started"
+        if cid:
+            out[cid] = it.get("status") or "Not started"
     return out
 
 
-def cmd_next() -> None:
+def cmd_next():
     preflight()
     data = load_backlog()
     cards = {c["id"]: c for c in data["cards"]}
     board = read_board(data["meta"])
-
-    def is_done(cid: str) -> bool:
-        return board.get(cid, "Not started") in DONE_NAMES
-
+    done = set(cid for cid in cards if board.get(cid, "Not started") in DONE_NAMES)
     active = [c for cid, c in cards.items() if board.get(cid) in ACTIVE_NAMES]
     ready = []
     for cid, c in cards.items():
-        if is_done(cid) or board.get(cid) in ACTIVE_NAMES:
+        if cid in done or board.get(cid) in ACTIVE_NAMES:
             continue
-        if all(is_done(d) for d in c.get("depends_on", [])):
+        if all(d in done for d in c.get("depends_on", [])):
             ready.append(c)
-
-    done_n = sum(1 for cid in cards if is_done(cid))
-    print(f"\nProgress: {done_n}/{len(cards)} cards Released.\n")
-
+    print("\nProgress: " + str(len(done)) + "/" + str(len(cards)) + " cards Released.\n")
     if active:
         print("In progress:")
         for c in active:
-            print(f"  ~ {card_title(c)}")
+            print("  ~ " + card_title(c))
         print()
-
     if not ready:
         print("Nothing unblocked. Finish an in-progress card to open the next ones.")
         return
     print("Ready to start (all dependencies Released):")
-    for c in sorted(ready, key=lambda c: c["id"]):
+    for c in sorted(ready, key=lambda x: x["id"]):
         deps = ", ".join(c.get("depends_on", [])) or "none"
-        print(f"  → {card_title(c)}   [deps: {deps}]")
+        print("  -> " + card_title(c) + "   [deps: " + deps + "]")
 
 
-def cmd_status() -> None:
+def cmd_status():
     preflight()
     data = load_backlog()
     cards = {c["id"]: c for c in data["cards"]}
@@ -316,13 +276,132 @@ def cmd_status() -> None:
         else:
             buckets["Not started"].append(c)
     for col in ("Released", "Active", "Not started"):
-        rows = sorted(buckets[col], key=lambda c: c["id"])
-        print(f"\n{col} ({len(rows)})")
+        rows = sorted(buckets[col], key=lambda x: x["id"])
+        print("\n" + col + " (" + str(len(rows)) + ")")
         for c in rows:
-            print(f"  {card_title(c)}")
+            print("  " + card_title(c))
 
 
-def main() -> None:
+def load_card_specs():
+    text = (ROOT / CARDS_DOC).read_text(encoding="utf-8")
+    specs = {}
+    for part in re.split(r"^### ", text, flags=re.M)[1:]:
+        lines = part.splitlines()
+        cid = card_id_from_title(lines[0].strip())
+        desc, crit, mode = [], [], "desc"
+        for ln in lines[1:]:
+            s = ln.strip()
+            if s.startswith("**Acceptance criteria"):
+                mode = "crit"
+                continue
+            if mode == "desc":
+                if s.startswith("**Package") or s.startswith("**Depends"):
+                    continue
+                if s and not s.startswith(("---", "##")):
+                    desc.append(s)
+            elif s.startswith("-"):
+                crit.append(s[1:].strip())
+            elif s.startswith(("##", "---")):
+                break
+        specs[cid] = {"desc": " ".join(desc).strip(), "criteria": crit}
+    return specs
+
+
+def find_issue(repo, cid):
+    try:
+        proc = subprocess.run(["gh", "issue", "list", "--repo", repo, "--state", "all",
+                               "--search", cid, "--limit", "100", "--json", "number,url,title"],
+                              capture_output=True, text=True)
+    except FileNotFoundError:
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        for it in json.loads(proc.stdout):
+            if card_id_from_title(it.get("title", "")) == cid:
+                return it
+    except json.JSONDecodeError:
+        return None
+    return None
+
+
+def reference_docs(card):
+    docs = ["CLAUDE.md"]
+    for pkg in card.get("package", []):
+        if pkg != "root":
+            docs.append(pkg + "/CLAUDE.md")
+    for lbl in card.get("labels", []):
+        if lbl in ADR_BY_LABEL:
+            docs.append(ADR_BY_LABEL[lbl])
+    if card["id"] in ADR_BY_ID:
+        docs.append(ADR_BY_ID[card["id"]])
+    docs.append(CARDS_DOC)
+    seen, out = set(), []
+    for d in docs:
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
+
+
+def provider_hint(card):
+    if card["id"] in PROVIDER_BY_ID:
+        return PROVIDER_BY_ID[card["id"]]
+    for lbl in card.get("labels", []):
+        if lbl in PROVIDER_BY_LABEL:
+            return PROVIDER_BY_LABEL[lbl]
+    return None
+
+
+def cmd_brief(card_id, sdd=False):
+    data = load_backlog()
+    cards = {c["id"]: c for c in data["cards"]}
+    card = cards.get(card_id)
+    if not card:
+        sys.exit("Unknown card '" + card_id + "'. Known: " + ", ".join(cards))
+    spec = load_card_specs().get(card_id, {"desc": card["body"].strip(), "criteria": []})
+    issue = find_issue(data["meta"]["repo"], card_id)
+    issue_no = str(issue["number"]) if issue else "<issue>"
+    issue_ref = ("#" + str(issue["number"]) + "  " + issue["url"]) if issue else "(open the card's issue on the board)"
+    deps = ", ".join(card.get("depends_on", [])) or "none"
+    prov = provider_hint(card)
+    bar = "=" * 70
+    out = [bar, "AGENT BRIEF -- " + card_title(card), "GitHub issue: " + issue_ref,
+           "Package: " + ", ".join(card.get("package", [])) + "   |   Depends on: " + deps + " (all must be Released)",
+           bar, "", "READ FIRST (in order):"]
+    for d in reference_docs(card):
+        out.append("  - " + d)
+    out += ["", "TASK:", "  " + spec["desc"], "",
+            "ACCEPTANCE CRITERIA -- write these as tests FIRST, then implement to green:"]
+    if spec["criteria"]:
+        for i, c in enumerate(spec["criteria"], 1):
+            out.append("  " + str(i) + ". " + c)
+    else:
+        out.append("  (see the card in docs/P0-task-cards.md)")
+    out += ["", "CONVENTIONS (apply throughout):",
+            "  - Tests first: the criteria above are the test list; red -> green.",
+            "  - Integrations stubbed: build against the deterministic stub; no vendor SDK",
+            "    outside its provider module; the per-provider config flag selects stub/live."]
+    if prov:
+        out.append("  - This card's provider: " + prov[0] + " (extend the stub in " + prov[1] + ").")
+    out += ["  - OpenAPI is generated: after adding/altering routes or schemas, run",
+            "      cd api && python -m app.scripts.export_openapi",
+            "    and commit docs/openapi.yaml (CI fails on drift).",
+            "  - Secrets by name only. Use rtk-prefixed commands (see CLAUDE.md).",
+            "  - Branch from main; open a PR whose description includes  Closes #" + issue_no,
+            "    so merging auto-moves the card to Released.", ""]
+    if sdd:
+        out += ["SPEC-DECOMPOSITION MODE (heavy card -- plan before coding):",
+                "  Produce an SDD plan like .superpowers/sdd/ did for F4:",
+                "  1. Decompose into ordered single-responsibility tasks; per task list files to",
+                "     touch, interfaces produced/consumed, and a tests-first step list.",
+                "  2. Keep a progress ledger; commit per task; review each diff vs criteria.",
+                "  3. Only then execute task by task.", ""]
+    out += ["STOP when every acceptance criterion is green. Summarize the diff against them.", bar]
+    print("\n".join(out))
+
+
+def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "next"
     if cmd == "setup":
         cmd_setup()
@@ -330,6 +409,12 @@ def main() -> None:
         cmd_next()
     elif cmd == "status":
         cmd_status()
+    elif cmd == "brief":
+        args = sys.argv[2:]
+        ids = [a for a in args if not a.startswith("--")]
+        if not ids:
+            sys.exit("Usage: python scripts/board.py brief <CARD_ID> [--sdd]")
+        cmd_brief(ids[0].upper(), sdd="--sdd" in args)
     else:
         sys.exit(__doc__)
 
