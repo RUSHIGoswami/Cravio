@@ -5,6 +5,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme/ThemeContext';
 import { Icons } from '../components/icons/Icon';
 import {
+  SignInScreen,
+  RolePickerScreen,
   OnboardingScreen,
   DiscoverScreen,
   CampaignsScreen,
@@ -14,6 +16,8 @@ import {
 } from '../screens';
 
 export type RootStackParamList = {
+  SignIn: undefined;
+  RolePicker: undefined;
   Onboarding: undefined;
   Main: undefined;
   Builder: undefined;
@@ -64,11 +68,13 @@ function MainTabs() {
   );
 }
 
-/** App-wide navigation: onboarding gate -> bottom-tab shell, with the campaign builder as a modal stack screen. */
+/** App-wide navigation: sign-in gate → role picker → onboarding → bottom-tab shell. */
 export function RootNavigator() {
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="SignIn" component={SignInScreen} />
+        <RootStack.Screen name="RolePicker" component={RolePickerScreen} />
         <RootStack.Screen name="Onboarding">
           {({ navigation }) => <OnboardingScreen onDone={() => navigation.replace('Main')} />}
         </RootStack.Screen>
