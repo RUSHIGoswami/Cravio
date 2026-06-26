@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import ARRAY, ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -32,6 +32,7 @@ class InfluencerProfile(Base):
 class SocialAccount(Base):
     __tablename__ = "social_accounts"
     __table_args__ = (
+        UniqueConstraint("influencer_id", "platform", name="uq_social_accounts_influencer_platform"),
         {"comment": "One row per platform per influencer; upsert on reconnect"},
     )
 
@@ -40,7 +41,7 @@ class SocialAccount(Base):
         UUID(as_uuid=True), ForeignKey("influencer_profiles.id", ondelete="CASCADE"), nullable=False, index=True
     )
     # create_type=False: migration 0003 handles enum creation via DO block
-    platform: Mapped[Platform] = mapped_column(Enum(Platform, name="platform", create_type=False), nullable=False)
+    platform: Mapped[Platform] = mapped_column(ENUM("instagram", "youtube", name="platform", create_type=False), nullable=False)
     followers: Mapped[int] = mapped_column(Integer, nullable=False)
     reach: Mapped[int] = mapped_column(Integer, nullable=False)
     engagement_rate: Mapped[float] = mapped_column(Float, nullable=False)
@@ -57,7 +58,7 @@ class MetricSnapshot(Base):
         UUID(as_uuid=True), ForeignKey("influencer_profiles.id", ondelete="CASCADE"), nullable=False, index=True
     )
     # create_type=False: migration 0003 handles enum creation via DO block
-    platform: Mapped[Platform] = mapped_column(Enum(Platform, name="platform", create_type=False), nullable=False)
+    platform: Mapped[Platform] = mapped_column(ENUM("instagram", "youtube", name="platform", create_type=False), nullable=False)
     followers: Mapped[int] = mapped_column(Integer, nullable=False)
     reach: Mapped[int] = mapped_column(Integer, nullable=False)
     engagement_rate: Mapped[float] = mapped_column(Float, nullable=False)

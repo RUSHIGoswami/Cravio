@@ -32,8 +32,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("user_id"),
     )
-    op.create_index("ix_influencer_profiles_user_id", "influencer_profiles", ["user_id"], unique=True)
-
     # Use postgresql.ENUM with create_type=False and the SAME instance as the column type.
     # This mirrors 0001_baseline_users.py for the role enum — _check_for_name_in_memos
     # short-circuits on create_type=False, preventing a duplicate CREATE TYPE in
