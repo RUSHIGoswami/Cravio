@@ -39,6 +39,22 @@ python scripts/board.py next      # cards whose dependencies are all Released
 python scripts/board.py status    # every card grouped by column
 ```
 
+### Generate a card's agent brief
+
+Instead of hand-writing a prompt per card, generate it from the backlog + the
+card's acceptance criteria on demand:
+
+```bash
+python scripts/board.py brief A1          # paste-ready brief for card A1
+python scripts/board.py brief A3 --sdd    # add a spec-decomposition plan (heavy cards)
+```
+
+The brief assembles: the docs to read (root + package CLAUDE.md + the relevant
+ADR), the acceptance criteria as a tests-first list, the provider stub to build
+against, the standing conventions, and a `Closes #<issue>` line so the merged PR
+auto-advances the board. Paste it into Claude Code as the session task. Nothing
+is stored per card — the YAML and P0-task-cards.md stay the only sources.
+
 Typical `next` output right now:
 
 ```
