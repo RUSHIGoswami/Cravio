@@ -1,0 +1,269 @@
+# Cravio backlog — canonical, machine-readable card index.
+#
+# This is the STATIC structure of the work: id, title, package, dependencies.
+# It does NOT track status. Status lives on the GitHub Projects board (the single
+# source of truth) in the "Status" field: "Not started" / "Active" / "Released".
+#
+# Used by:
+#   scripts/board.py setup  -> creates GitHub issues + project board from this file
+#   scripts/board.py next   -> reads board status + these deps, prints unblocked cards
+#
+# Card bodies are short on purpose — the full acceptance criteria live in
+# docs/P0-task-cards.md, which each issue links back to.
+
+meta:
+  repo: RUSHIGoswami/Cravio
+  project_title: "Cravio — P0 Build Board"
+  status_field: "Status"
+  status_options: ["Not started", "Active", "Released"]
+  # Cards whose work is already merged to main. setup sets these to "Released".
+  released:
+    - F1
+    - F2
+    - F3
+    - F4
+    - F5
+
+cards:
+  # ---- Foundation (Phase 0 -> Phase 1 boundary) ----
+  - id: F1
+    title: "Monorepo + CI skeleton"
+    package: [infra, root]
+    depends_on: []
+    labels: [foundation, infra]
+    body: >
+      Monorepo with per-package CLAUDE.md, GitHub Actions running lint+tests per
+      changed package, secret-scanning. CI blocks merge on lint/test failure.
+
+  - id: F2
+    title: "API app + DB + migration baseline"
+    package: [api]
+    depends_on: [F1]
+    labels: [foundation, api]
+    body: >
+      FastAPI boots; SQLAlchemy + Alembic on Postgres; Redis connected; GET /health
+      with DB+Redis status; baseline migration creates users table.
+
+  - id: F3
+    title: "OpenAPI export + drift check"
+    package: [api, infra]
+    depends_on: [F2]
+    labels: [foundation, api]
+    body: >
+      export_openapi regenerates docs/openapi.yaml from FastAPI; CI fails on drift.
+
+  - id: F4
+    title: "Provider interfaces + stubs"
+    package: [api]
+    depends_on: [F2]
+    labels: [foundation, api]
+    body: >
+      AuthProvider, VerificationProvider, PaymentProvider, AIService, SearchService,
+      NotificationService behind interfaces with deterministic stubs; config flag
+      selects stub vs live; no vendor SDK imported outside its provider module.
+
+  - id: F5
+    title: "Mobile app shell + generated API client + design system bootstrap"
+    package: [mobile]
+    depends_on: [F3]
+    labels: [foundation, mobile]
+    body: >
+      RN app boots iOS+Android; API client generated from docs/openapi.yaml; design
+      tokens + Button component render from shared library.
+
+  # ---- Authentication & Onboarding (P0) ----
+  - id: A1
+    title: "Social sign-up + role selection (API)"
+    package: [api]
+    depends_on: [F4]
+    labels: [p0, api, auth]
+    body: >
+      Verify Firebase ID tokens (stub); create/lookup user; persist role
+      (Influencer/Brand) at onboarding; issue internal session/JWT; 401 on
+      invalid/expired token; role-gated routes reject unset role.
+
+  - id: A2
+    title: "Social sign-up + role selection (mobile)"
+    package: [mobile]
+    depends_on: [A1, F5]
+    labels: [p0, mobile, auth]
+    body: >
+      Google/Apple/OTP sign-in via Firebase -> role selection; selected role routes
+      into correct onboarding flow; auth token stored securely and attached to calls.
+
+  - id: A3
+    title: "Influencer profile setup + verification connect (API)"
+    package: [api]
+    depends_on: [A1, F4]
+    labels: [p0, api]
+    body: >
+      Niche/bio/categories validate+persist; connect Instagram/YouTube via stubbed
+      VerificationProvider; store follower/reach/engagement + verified badge; write a
+      timestamped metric snapshot for fraud-delta history.
+
+  - id: A4
+    title: "Influencer onboarding flow (mobile)"
+    package: [mobile]
+    depends_on: [A3, A2]
+    labels: [p0, mobile]
+    body: >
+      End-to-end: role -> sign-up -> connect IG/YT -> verified metrics+badge shown ->
+      niche/bio/categories -> land on campaign feed. Inline validation; resumable.
+
+  - id: A5
+    title: "Brand profile setup (API + mobile)"
+    package: [api, mobile]
+    depends_on: [A1, A2]
+    labels: [p0, api, mobile]
+    body: >
+      Company name/industry/website/optional GST validate+persist; brand role can
+      reach campaign builder, influencer role cannot (server-enforced).
+
+  # ---- Influencer Discovery — Brand-facing (P0) ----
+  - id: D1
+    title: "Search + filters + location filter (API)"
+    package: [api]
+    depends_on: [A3]
+    labels: [p0, api, discovery]
+    body: >
+      Discovery via SearchService (Postgres FT + trigram): filter by niche,
+      city/state/region, follower range, engagement, platform, language; filters AND
+      together; fuzzy name search; paginated; document seed size + p95 target.
+
+  - id: D2
+    title: "Verified metrics + portfolio view (API)"
+    package: [api]
+    depends_on: [A3]
+    labels: [p0, api, discovery]
+    body: >
+      Verified-metrics endpoint (follower/reach/engagement) cached in Redis with TTL;
+      portfolio endpoint returns collaborations, content samples, rating summary.
+
+  - id: D3
+    title: "Discovery + shortlist UI (mobile / brand web)"
+    package: [mobile, admin]
+    depends_on: [D1, D2, A5]
+    labels: [p0, mobile, admin, discovery]
+    body: >
+      Brand applies filters, sees verified-metric cards, saves/removes influencers to
+      a named per-campaign shortlist; tapping opens My Influence portfolio.
+
+  # ---- Campaign Management — Brand-facing (P0) ----
+  - id: C1
+    title: "Campaign builder + types + deadlines (API)"
+    package: [api]
+    depends_on: [A5]
+    labels: [p0, api, campaign]
+    body: >
+      5-step campaign model; types Paid/Barter/Performance; delivery+posting
+      deadlines; multi-influencer; auto-filter so only matching influencers can apply
+      (non-matching applications rejected by API).
+
+  - id: C2
+    title: "Campaign builder UI (mobile + brand web)"
+    package: [mobile, admin]
+    depends_on: [C1]
+    labels: [p0, mobile, admin, campaign]
+    body: >
+      5-step wizard + review screen; set type/budget/timeline/deadlines; published
+      campaign appears in discovery feed; brand web mirror creates equivalent campaign.
+
+  # ---- Influencer Tools (P0) ----
+  - id: E1
+    title: "Campaign discovery feed (API + mobile)"
+    package: [api, mobile]
+    depends_on: [C1, A4]
+    labels: [p0, api, mobile]
+    body: >
+      Browse open campaigns filterable by niche/pay/collab type; only matching
+      campaigns applyable (server-enforced); paginated.
+
+  - id: E2
+    title: "Application flow + tracker (API)"
+    package: [api]
+    depends_on: [E1, C1]
+    labels: [p0, api]
+    body: >
+      Apply creates application in Applied; duplicates rejected; brand lists
+      applicants with verified metrics and moves status (Applied -> Under Review ->
+      Selected/Rejected); selecting triggers a notification event (G1).
+
+  - id: E3
+    title: "Application UI + tracker (mobile)"
+    package: [mobile]
+    depends_on: [E2]
+    labels: [p0, mobile]
+    body: >
+      Apply from feed (tap to apply); status tracker reflects brand-side changes.
+
+  - id: E4
+    title: "My Influence portfolio (API + mobile)"
+    package: [api, mobile]
+    depends_on: [A3]
+    labels: [p0, api, mobile]
+    body: >
+      Completed collaborations auto-appear; verified follower stats + niche tags
+      render; content samples upload via S3 pre-signed URLs.
+
+  # ---- Payments — direct payout (P0; escrow deferred to Phase 2) ----
+  - id: P1
+    title: "Direct payout + payout methods (API)"
+    package: [api]
+    depends_on: [E2, F4]
+    labels: [p0, api, payments]
+    body: >
+      Via stubbed-then-live PaymentProvider (Razorpay Payouts): pay influencer after
+      content approval; methods bank/UPI/Paytm/Razorpay validated+stored; webhooks
+      signature-verified and idempotent.
+
+  - id: P2
+    title: "Content delivery + approval + payout UX (mobile + brand web)"
+    package: [mobile, admin]
+    depends_on: [P1]
+    labels: [p0, mobile, admin, payments]
+    body: >
+      Influencer submits deliverables; brand approves/requests changes; approval
+      triggers payout (P1) + notification (G1); both see payout status.
+
+  # ---- Notifications (P0) ----
+  - id: G1
+    title: "Push notifications (API + mobile)"
+    package: [api, mobile]
+    depends_on: [F4, A2]
+    labels: [p0, api, mobile]
+    body: >
+      FCM device-token registration on login (stale tokens pruned); send on new
+      matching campaign, application status change, content approval, payout; respect
+      user preferences; stub asserts payload.
+
+  # ---- Admin & Platform (P0) ----
+  - id: M1
+    title: "Moderation, reporting, banning (API + admin web)"
+    package: [api, admin]
+    depends_on: [F2, A1]
+    labels: [p0, api, admin]
+    body: >
+      Moderation queue for flagged campaigns/profiles; influencer can report a
+      campaign (recorded + surfaced to admin); banning blocks access (server-enforced)
+      and is auditable.
+
+  # ---- Launch (P0 gate) ----
+  - id: L0
+    title: "Deploy pipeline"
+    package: [infra]
+    depends_on: [F1]
+    labels: [p0, infra, launch]
+    body: >
+      deploy.yml on push:main (and/or tags) calls ci.yml via workflow_call as a
+      pre-deploy gate; auto-deploy staging on main; production behind manual
+      approval/tag via GitHub Environments; secrets by name only.
+
+  - id: L1
+    title: "Store readiness + observability"
+    package: [infra, mobile]
+    depends_on: [A4, E2, P1, L0]
+    labels: [p0, infra, mobile, launch]
+    body: >
+      PostHog funnels (onboarding/application/payout, no PAN/bank PII); crash/error
+      reporting; uptime monitoring (99.5% target) with alerting; iOS+Android store
+      builds pass validation.
