@@ -19,6 +19,7 @@ export interface ButtonProps {
   leadingIcon?: React.ReactNode;
   trailingIcon?: React.ReactNode;
   onPress?: (e: GestureResponderEvent) => void;
+  testID?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export function Button({
   leadingIcon = null,
   trailingIcon = null,
   onPress,
+  testID,
 }: ButtonProps) {
   const theme = useTheme();
   const sizes: Record<ButtonSize, { h: number; px: number; fs: number; gap: number }> = {
@@ -55,6 +57,7 @@ export function Button({
 
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
