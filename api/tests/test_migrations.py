@@ -15,7 +15,7 @@ def test_alembic_upgrade_head_creates_users_table():
 
     columns = asyncio.run(_users_columns())
 
-    assert columns == {"id", "email", "role", "role_set", "created_at"}
+    assert columns == {"id", "firebase_uid", "email", "role", "role_set", "created_at"}
 
 
 async def _users_columns() -> set:

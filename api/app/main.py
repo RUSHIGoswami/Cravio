@@ -1,8 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from app.routers import health
+from app.routers import auth, health
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    from app.core.db import engine
+
+    await engine.dispose()
+
 
 app = FastAPI(
+    lifespan=lifespan,
     title="Cravio API",
     version="0.1.0",
     description=(
@@ -16,3 +28,4 @@ app = FastAPI(
     ],
 )
 app.include_router(health.router)
+app.include_router(auth.router)
