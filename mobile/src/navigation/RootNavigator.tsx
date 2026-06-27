@@ -76,7 +76,7 @@ export function RootNavigator() {
         <RootStack.Screen name="SignIn" component={SignInScreen} />
         <RootStack.Screen name="RolePicker" component={RolePickerScreen} />
         <RootStack.Screen name="Onboarding">
-          {({ navigation }) => <OnboardingScreen onDone={() => navigation.replace('Main')} />}
+          {({ navigation }) => <OnboardingScreen onComplete={() => navigation.replace('Main')} />}
         </RootStack.Screen>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>
