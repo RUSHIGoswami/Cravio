@@ -55,7 +55,7 @@ describe('RolePickerScreen (criterion 2)', () => {
     });
   });
 
-  test('Brand → calls setRole("brand") → navigates to Main', async () => {
+  test('Brand → calls setRole("brand") → navigates to BrandOnboarding', async () => {
     (setRole as jest.Mock).mockResolvedValueOnce({ role: 'brand', role_set: true });
 
     await renderScreen();
@@ -63,7 +63,7 @@ describe('RolePickerScreen (criterion 2)', () => {
 
     await waitFor(() => {
       expect(setRole).toHaveBeenCalledWith('brand', 'stored-jwt');
-      expect(mockNavigation.replace).toHaveBeenCalledWith('Main');
+      expect(mockNavigation.replace).toHaveBeenCalledWith('BrandOnboarding');
     });
   });
 });

@@ -55,6 +55,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brand/campaign-builder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brand-only gate confirming the caller can reach the campaign builder
+         * @description Server-enforced brand gate (A5 AC2). `_require_brand` 403s influencers;
+         *     `profile_complete` tells the client whether brand setup is done so it can route
+         *     straight into the builder (C1) or back to profile setup.
+         */
+        get: operations["campaign_builder_access_brand_campaign_builder_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brand/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get brand profile */
+        get: operations["get_profile_brand_profile_get"];
+        /** Create or update brand profile */
+        put: operations["put_profile_brand_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -111,6 +151,40 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BrandProfileResponse */
+        BrandProfileResponse: {
+            /** Company Name */
+            company_name: string;
+            /** Gst */
+            gst: string | null;
+            /** Industry */
+            industry: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Website */
+            website: string;
+        };
+        /** BrandProfileUpdateRequest */
+        BrandProfileUpdateRequest: {
+            /** Company Name */
+            company_name: string;
+            /** Gst */
+            gst?: string | null;
+            /** Industry */
+            industry: string;
+            /** Website */
+            website: string;
+        };
+        /** CampaignBuilderAccessResponse */
+        CampaignBuilderAccessResponse: {
+            /** Can Create Campaign */
+            can_create_campaign: boolean;
+            /** Profile Complete */
+            profile_complete: boolean;
+        };
         /** ConnectSocialRequest */
         ConnectSocialRequest: {
             /** Oauth Code */
@@ -325,6 +399,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SetRoleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    campaign_builder_access_brand_campaign_builder_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignBuilderAccessResponse"];
+                };
+            };
+        };
+    };
+    get_profile_brand_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandProfileResponse"];
+                };
+            };
+        };
+    };
+    put_profile_brand_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandProfileResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,5 +1,74 @@
 components:
   schemas:
+    BrandProfileResponse:
+      properties:
+        company_name:
+          title: Company Name
+          type: string
+        gst:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Gst
+        industry:
+          title: Industry
+          type: string
+        user_id:
+          format: uuid
+          title: User Id
+          type: string
+        website:
+          title: Website
+          type: string
+      required:
+      - user_id
+      - company_name
+      - industry
+      - website
+      - gst
+      title: BrandProfileResponse
+      type: object
+    BrandProfileUpdateRequest:
+      properties:
+        company_name:
+          maxLength: 160
+          minLength: 1
+          title: Company Name
+          type: string
+        gst:
+          anyOf:
+          - maxLength: 15
+            type: string
+          - type: 'null'
+          title: Gst
+        industry:
+          maxLength: 80
+          minLength: 1
+          title: Industry
+          type: string
+        website:
+          maxLength: 255
+          title: Website
+          type: string
+      required:
+      - company_name
+      - industry
+      - website
+      title: BrandProfileUpdateRequest
+      type: object
+    CampaignBuilderAccessResponse:
+      properties:
+        can_create_campaign:
+          title: Can Create Campaign
+          type: boolean
+        profile_complete:
+          title: Profile Complete
+          type: boolean
+      required:
+      - can_create_campaign
+      - profile_complete
+      title: CampaignBuilderAccessResponse
+      type: object
     ConnectSocialRequest:
       properties:
         oauth_code:
@@ -317,6 +386,68 @@ paths:
       summary: Set role once during onboarding
       tags:
       - Auth
+  /brand/campaign-builder:
+    get:
+      description: 'Server-enforced brand gate (A5 AC2). `_require_brand` 403s influencers;
+
+        `profile_complete` tells the client whether brand setup is done so it can
+        route
+
+        straight into the builder (C1) or back to profile setup.'
+      operationId: campaign_builder_access_brand_campaign_builder_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignBuilderAccessResponse'
+          description: Successful Response
+      security:
+      - HTTPBearer: []
+      summary: Brand-only gate confirming the caller can reach the campaign builder
+      tags:
+      - Brand
+  /brand/profile:
+    get:
+      operationId: get_profile_brand_profile_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandProfileResponse'
+          description: Successful Response
+      security:
+      - HTTPBearer: []
+      summary: Get brand profile
+      tags:
+      - Brand
+    put:
+      operationId: put_profile_brand_profile_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrandProfileUpdateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandProfileResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - HTTPBearer: []
+      summary: Create or update brand profile
+      tags:
+      - Brand
   /health:
     get:
       operationId: health_health_get
