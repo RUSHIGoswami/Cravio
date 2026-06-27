@@ -2,13 +2,11 @@
  * SignInScreen — criterion 1: Google/Apple/OTP flows navigate to RolePicker
  * when role_set is false; navigate to Main when role_set is true.
  */
-jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
-  return {
-    SafeAreaProvider: ({ children }: { children: React.ReactNode }) => children,
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-  };
-});
+jest.mock('react-native-safe-area-context', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  SafeAreaProvider: ({ children }: { children: any }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 
 jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(async () => {}),
