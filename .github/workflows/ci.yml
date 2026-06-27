@@ -66,6 +66,9 @@ jobs:
           enable-cache: true
       - run: uv sync --group dev
       - run: uv run ruff check .
+      - name: Type check (ty, advisory)
+        continue-on-error: true
+        run: uv run ty check
       - run: uv run alembic upgrade head
       - run: uv run pytest -q
       - run: uv run python -m app.scripts.export_openapi

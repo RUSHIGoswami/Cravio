@@ -66,15 +66,18 @@ uvicorn app.main:app --reload
 
 Visit `http://localhost:8000/health` — should return `{"status": "ok", "db": true, "redis": true}`. Interactive API docs: `http://localhost:8000/docs`.
 
-## 6. Tests, lint, OpenAPI
+## 6. Tests, lint, type-check, OpenAPI
 
 ```bash
 pytest -q                              # run the test suite
 ruff check .                           # lint
+ty check                               # type-check (Astral)
 python -m app.scripts.export_openapi   # regenerate /docs/openapi.yaml — run after any route/schema change
 ```
 
-CI (`.github/workflows/ci.yml`) runs all three of the above (plus `alembic upgrade head` against a fresh DB) on every PR that touches `api/**`, and fails the build if `docs/openapi.yaml` drifts from what the script generates — always regenerate and commit it together with the route/schema change that caused the drift.
+**When to run `ty check`** — before opening a PR, alongside `ruff` and `pytest`. It statically type-checks the code (FastAPI/Pydantic/SQLAlchemy) and catches type mismatches `ruff` doesn't. `ty` is **preview (pre-1.0)** from Astral (the `uv`/`ruff` team): fast, near-zero config (`[tool.ty.*]` in `pyproject.toml`), but expect occasional false positives — treat findings as signal, fix the real ones. For inline editor diagnostics, point your LSP client at `ty server`.
+
+CI (`.github/workflows/ci.yml`) runs `ruff`, `pytest`, and the OpenAPI export (plus `alembic upgrade head` against a fresh DB) on every PR that touches `api/**`, and fails the build if `docs/openapi.yaml` drifts from what the script generates — always regenerate and commit it together with the route/schema change that caused the drift. `ty check` also runs in CI but is **advisory (non-blocking)** while it's pre-1.0 — it surfaces type errors in the job log without failing the build.
 
 ## Troubleshooting
 
