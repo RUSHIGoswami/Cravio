@@ -13,7 +13,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 from app.main import app
@@ -230,8 +230,8 @@ def test_connect_writes_snapshot_row(client: TestClient):
 
     # Verify snapshot exists in DB
     async def _check():
-        from app.models.user import User as UserModel
         from app.models.influencer import InfluencerProfile as IP
+        from app.models.user import User as UserModel
         engine = create_async_engine(settings.database_url)
         factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
@@ -260,8 +260,8 @@ def test_reconnect_appends_new_snapshot_row(client: TestClient):
     client.put("/influencer/profile", json={"niche": "art", "bio": None, "categories": []}, headers=headers)
 
     async def _count_snaps_for_user() -> int:
-        from app.models.user import User as UserModel
         from app.models.influencer import InfluencerProfile as IP
+        from app.models.user import User as UserModel
         engine = create_async_engine(settings.database_url)
         factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:

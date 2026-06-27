@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.models.influencer import InfluencerProfile, SocialAccount, MetricSnapshot
+from app.models.influencer import InfluencerProfile, MetricSnapshot, SocialAccount
 from app.models.user import User
 from app.services.verification.base import Platform
 
