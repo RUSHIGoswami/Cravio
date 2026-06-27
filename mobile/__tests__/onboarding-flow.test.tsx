@@ -48,14 +48,20 @@ const CONNECTED = {
 };
 const FILLED = { ...CONNECTED, niche: 'Fashion', categories: ['Fashion'] };
 
-function renderScreen(onComplete = jest.fn()) {
-  render(
-    <SafeAreaProvider>
-      <ThemeProvider scheme="light">
-        <OnboardingScreen onComplete={onComplete} />
-      </ThemeProvider>
-    </SafeAreaProvider>,
-  );
+// OnboardingScreen loads its profile in an async mount effect. Wrapping the
+// render in act() lets that effect's promises settle inside an act scope, so the
+// first step renders deterministically (jest-expo's env otherwise leaves the
+// mount update unflushed — flaky "render has not been called" / act warnings).
+async function renderScreen(onComplete = jest.fn()) {
+  await act(async () => {
+    render(
+      <SafeAreaProvider>
+        <ThemeProvider scheme="light">
+          <OnboardingScreen onComplete={onComplete} />
+        </ThemeProvider>
+      </SafeAreaProvider>,
+    );
+  });
   return { onComplete };
 }
 
@@ -84,7 +90,7 @@ describe('OnboardingScreen (A4)', () => {
     (ensureProfile as jest.Mock).mockResolvedValue(EMPTY);
     (connectSocial as jest.Mock).mockResolvedValue(CONNECTED);
 
-    renderScreen();
+    await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('btn-connect-instagram')).toBeTruthy());
     await press('btn-connect-instagram');
@@ -104,7 +110,7 @@ describe('OnboardingScreen (A4)', () => {
     (connectSocial as jest.Mock).mockResolvedValue(CONNECTED);
     (updateProfile as jest.Mock).mockResolvedValue(FILLED);
 
-    const { onComplete } = renderScreen();
+    const { onComplete } = await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('btn-connect-instagram')).toBeTruthy());
     await press('btn-connect-instagram');
@@ -136,7 +142,7 @@ describe('OnboardingScreen (A4)', () => {
     // resume straight into the profile step (account connected, no niche yet)
     (ensureProfile as jest.Mock).mockResolvedValue(CONNECTED);
 
-    const { onComplete } = renderScreen();
+    const { onComplete } = await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('input-niche')).toBeTruthy());
     // press continue with empty niche + no category selected
@@ -150,7 +156,7 @@ describe('OnboardingScreen (A4)', () => {
   test('criterion 2b — resumable: a connected-but-incomplete profile skips the connect step', async () => {
     (ensureProfile as jest.Mock).mockResolvedValue(CONNECTED);
 
-    renderScreen();
+    await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('input-niche')).toBeTruthy());
     // connect step is behind us — its buttons should not be on screen
@@ -160,7 +166,7 @@ describe('OnboardingScreen (A4)', () => {
   test('criterion 2b — resumable: a fully filled profile resumes at the Collab Pass step', async () => {
     (ensureProfile as jest.Mock).mockResolvedValue(FILLED);
 
-    renderScreen();
+    await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('btn-finish')).toBeTruthy());
     expect(screen.queryByTestId('input-niche')).toBeNull();
