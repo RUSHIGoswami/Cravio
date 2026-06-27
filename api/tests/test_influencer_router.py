@@ -13,7 +13,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.main import app
@@ -230,17 +230,24 @@ def test_connect_writes_snapshot_row(client: TestClient):
 
     # Verify snapshot exists in DB
     async def _check():
-        from sqlalchemy.ext.asyncio import AsyncSession
-        from sqlalchemy.orm import sessionmaker
+        from app.models.user import User as UserModel
+        from app.models.influencer import InfluencerProfile as IP
         engine = create_async_engine(settings.database_url)
-        factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
-            result = await session.execute(select(MetricSnapshot))
-            snaps = result.scalars().all()
+            result = await session.execute(
+                select(IP).join(UserModel, IP.user_id == UserModel.id)
+                .where(UserModel.firebase_uid == "stub-uid-a3-router-connect-snapshot")
+            )
+            profile = result.scalar_one_or_none()
+            assert profile is not None
+            snaps_result = await session.execute(
+                select(MetricSnapshot).where(MetricSnapshot.influencer_id == profile.id)
+            )
+            snaps = snaps_result.scalars().all()
             assert len(snaps) >= 1
-            snap = snaps[-1]
-            assert snap.followers == 12000
-            assert snap.created_at is not None
+            assert snaps[0].followers == 12000
+            assert snaps[0].created_at is not None
         await engine.dispose()
 
     asyncio.run(_check())
@@ -253,12 +260,10 @@ def test_reconnect_appends_new_snapshot_row(client: TestClient):
     client.put("/influencer/profile", json={"niche": "art", "bio": None, "categories": []}, headers=headers)
 
     async def _count_snaps_for_user() -> int:
-        from sqlalchemy.ext.asyncio import AsyncSession
-        from sqlalchemy.orm import sessionmaker
         from app.models.user import User as UserModel
         from app.models.influencer import InfluencerProfile as IP
         engine = create_async_engine(settings.database_url)
-        factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             result = await session.execute(
                 select(IP).join(UserModel, IP.user_id == UserModel.id)

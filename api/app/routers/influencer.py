@@ -77,7 +77,7 @@ async def put_profile(
     profile = result.scalar_one_or_none()
 
     if profile is None:
-        profile = InfluencerProfile(id=uuid.uuid4(), user_id=user.id)
+        profile = InfluencerProfile(user_id=user.id)
         db.add(profile)
 
     profile.niche = body.niche
@@ -113,7 +113,7 @@ async def connect_social(
     )
     acct = acct_result.scalar_one_or_none()
     if acct is None:
-        acct = SocialAccount(id=uuid.uuid4(), influencer_id=profile.id, platform=body.platform)
+        acct = SocialAccount(influencer_id=profile.id, platform=body.platform)
         db.add(acct)
 
     acct.followers = metrics.followers
