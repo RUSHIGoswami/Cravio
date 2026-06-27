@@ -8,6 +8,7 @@ import {
   SignInScreen,
   RolePickerScreen,
   OnboardingScreen,
+  BrandOnboardingScreen,
   DiscoverScreen,
   CampaignsScreen,
   PortfolioScreen,
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   SignIn: undefined;
   RolePicker: undefined;
   Onboarding: undefined;
+  BrandOnboarding: undefined;
   Main: undefined;
   Builder: undefined;
 };
@@ -77,6 +79,9 @@ export function RootNavigator() {
         <RootStack.Screen name="RolePicker" component={RolePickerScreen} />
         <RootStack.Screen name="Onboarding">
           {({ navigation }) => <OnboardingScreen onComplete={() => navigation.replace('Main')} />}
+        </RootStack.Screen>
+        <RootStack.Screen name="BrandOnboarding">
+          {({ navigation }) => <BrandOnboardingScreen onComplete={() => navigation.replace('Main')} />}
         </RootStack.Screen>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>

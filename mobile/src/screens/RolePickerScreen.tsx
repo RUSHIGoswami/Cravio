@@ -27,7 +27,7 @@ export function RolePickerScreen({ navigation }: Props) {
       if (role === 'influencer') {
         navigation.replace('Onboarding');
       } else {
-        navigation.replace('Main');
+        navigation.replace('BrandOnboarding');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
