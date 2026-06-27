@@ -121,9 +121,8 @@ async def connect_social(
     acct.engagement_rate = metrics.engagement_rate
     acct.connected_at = datetime.now(timezone.utc)
 
-    # Always append a new snapshot row
+    # Always append a new snapshot row (never upsert — history for fraud-delta)
     snap = MetricSnapshot(
-        id=uuid.uuid4(),
         influencer_id=profile.id,
         platform=body.platform,
         followers=metrics.followers,
@@ -132,7 +131,9 @@ async def connect_social(
     )
     db.add(snap)
 
-    # Set verified badge if any connected account returned verified=True
+    # Verified badge is sticky: once True it is never cleared by a later reconnect.
+    # A provider returning verified=False does not revoke an existing badge — that
+    # requires an admin action (out of scope for P0).
     if metrics.verified:
         profile.verified = True
 

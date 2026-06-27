@@ -77,5 +77,6 @@ def downgrade() -> None:
     op.drop_constraint("uq_social_accounts_influencer_platform", "social_accounts", type_="unique")
     op.drop_table("social_accounts")
     op.drop_table("influencer_profiles")
-    # Drop platform enum only if no other tables use it
+    # Both consuming tables are dropped above, so the type is safe to remove.
+    # checkfirst=True avoids an error if a prior failed downgrade already dropped it.
     postgresql.ENUM(name="platform").drop(op.get_bind(), checkfirst=True)
