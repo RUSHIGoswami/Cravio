@@ -13,6 +13,7 @@ FastAPI (Python 3.12) backend. REST + WebSocket. This package is the source of t
 - **Contract is generated, not hand-written.** The committed `/docs/openapi.yaml` is regenerated from FastAPI route+schema definitions. CI fails if the committed spec drifts from code.
 - **Integrations behind interfaces.** `VerificationProvider` (Meta/YouTube), `PaymentProvider` (Razorpay), `AuthProvider` (Firebase), `AIService` (Claude), `SearchService`, `NotificationService` (FCM). Provide deterministic stubs; no feature imports a vendor SDK directly. See ADR-0005/0007/0008/0009/0010.
 - **Async correctly.** No blocking calls in request handlers. CPU-bound and long-running work goes to background workers.
+- **Type-check before pushing.** Run `uv run ty check` (Astral's type checker) alongside `ruff check` and `pytest` before opening a PR. Catches type errors over FastAPI/Pydantic/SQLAlchemy. `ty` is **preview (pre-1.0)** — treat findings as signal, not gospel; CI runs it **advisory (non-blocking)** so it won't fail a build. Config in `[tool.ty.*]` (`pyproject.toml`). Editors: `ty server` (LSP) for inline diagnostics.
 - **Secrets by name only.** Read from environment / secret manager. Never commit values.
 - **Migrations ship with schema changes.** Every model change has an Alembic migration; CI runs them.
 
@@ -36,6 +37,8 @@ api/
 ```
 uv sync --group dev                     # all deps — runtime + dev — come from pyproject.toml/uv.lock only
 uvicorn app.main:app --reload          # dev server
+ruff check .                            # lint
+ty check                                # type check (Astral, preview)
 pytest                                  # tests
 alembic upgrade head                    # apply migrations
 python -m app.scripts.export_openapi    # regenerate /docs/openapi.yaml (wired into CI)
