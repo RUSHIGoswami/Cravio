@@ -27,11 +27,14 @@ def _wipe() -> None:
             await conn.execute(text("DELETE FROM metric_snapshots"))
             await conn.execute(text("DELETE FROM social_accounts"))
             await conn.execute(text("DELETE FROM influencer_profiles"))
-            await conn.execute(text("DELETE FROM users WHERE firebase_uid LIKE 'stub-uid-a3-router-%'"))
+            await conn.execute(
+                text("DELETE FROM users WHERE firebase_uid LIKE 'stub-uid-a3-router-%'")
+            )
         await engine.dispose()
         # Dispose the global app engine so the TestClient's new anyio event loop gets
         # fresh asyncpg connections rather than reusing connections tied to a prior loop.
         from app.core.db import engine as _app_engine
+
         await _app_engine.dispose()
 
     asyncio.run(_run())
@@ -92,8 +95,16 @@ def test_put_profile_creates_and_returns(client: TestClient):
 def test_put_profile_updates_existing(client: TestClient):
     jwt = _create_influencer(client, "profile-update")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "food", "bio": "old", "categories": []}, headers=headers)
-    resp = client.put("/influencer/profile", json={"niche": "travel", "bio": "new bio", "categories": ["travel"]}, headers=headers)
+    client.put(
+        "/influencer/profile",
+        json={"niche": "food", "bio": "old", "categories": []},
+        headers=headers,
+    )
+    resp = client.put(
+        "/influencer/profile",
+        json={"niche": "travel", "bio": "new bio", "categories": ["travel"]},
+        headers=headers,
+    )
     assert resp.status_code == 200
     assert resp.json()["niche"] == "travel"
     assert resp.json()["bio"] == "new bio"
@@ -138,7 +149,11 @@ def test_get_profile_returns_404_before_creation(client: TestClient):
 def test_get_profile_returns_profile_after_creation(client: TestClient):
     jwt = _create_influencer(client, "profile-get-200")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "art", "bio": None, "categories": ["art"]}, headers=headers)
+    client.put(
+        "/influencer/profile",
+        json={"niche": "art", "bio": None, "categories": ["art"]},
+        headers=headers,
+    )
     resp = client.get("/influencer/profile", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["niche"] == "art"
@@ -160,7 +175,11 @@ def test_brand_cannot_access_influencer_profile_endpoint(client: TestClient):
 def test_connect_instagram_stores_metrics_and_badge(client: TestClient):
     jwt = _create_influencer(client, "connect-ig")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "fitness", "bio": None, "categories": []}, headers=headers)
+    client.put(
+        "/influencer/profile",
+        json={"niche": "fitness", "bio": None, "categories": []},
+        headers=headers,
+    )
 
     resp = client.post(
         "/influencer/profile/connect",
@@ -181,7 +200,11 @@ def test_connect_instagram_stores_metrics_and_badge(client: TestClient):
 def test_connect_youtube_stores_metrics(client: TestClient):
     jwt = _create_influencer(client, "connect-yt")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "gaming", "bio": None, "categories": []}, headers=headers)
+    client.put(
+        "/influencer/profile",
+        json={"niche": "gaming", "bio": None, "categories": []},
+        headers=headers,
+    )
 
     resp = client.post(
         "/influencer/profile/connect",
@@ -199,9 +222,21 @@ def test_reconnect_same_platform_upserts(client: TestClient):
     """Second connect for same platform updates, doesn't duplicate."""
     jwt = _create_influencer(client, "connect-upsert")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "food", "bio": None, "categories": []}, headers=headers)
-    client.post("/influencer/profile/connect", json={"platform": "instagram", "oauth_code": "tok1"}, headers=headers)
-    resp = client.post("/influencer/profile/connect", json={"platform": "instagram", "oauth_code": "tok2"}, headers=headers)
+    client.put(
+        "/influencer/profile",
+        json={"niche": "food", "bio": None, "categories": []},
+        headers=headers,
+    )
+    client.post(
+        "/influencer/profile/connect",
+        json={"platform": "instagram", "oauth_code": "tok1"},
+        headers=headers,
+    )
+    resp = client.post(
+        "/influencer/profile/connect",
+        json={"platform": "instagram", "oauth_code": "tok2"},
+        headers=headers,
+    )
     assert resp.status_code == 200
     accounts = [a for a in resp.json()["social_accounts"] if a["platform"] == "instagram"]
     assert len(accounts) == 1  # upserted, not duplicated
@@ -210,7 +245,9 @@ def test_reconnect_same_platform_upserts(client: TestClient):
 def test_connect_empty_oauth_code_rejected(client: TestClient):
     jwt = _create_influencer(client, "connect-empty-code")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "x", "bio": None, "categories": []}, headers=headers)
+    client.put(
+        "/influencer/profile", json={"niche": "x", "bio": None, "categories": []}, headers=headers
+    )
     resp = client.post(
         "/influencer/profile/connect",
         json={"platform": "instagram", "oauth_code": ""},
@@ -225,18 +262,28 @@ def test_connect_empty_oauth_code_rejected(client: TestClient):
 def test_connect_writes_snapshot_row(client: TestClient):
     jwt = _create_influencer(client, "connect-snapshot")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "tech", "bio": None, "categories": []}, headers=headers)
-    client.post("/influencer/profile/connect", json={"platform": "instagram", "oauth_code": "snap-tok"}, headers=headers)
+    client.put(
+        "/influencer/profile",
+        json={"niche": "tech", "bio": None, "categories": []},
+        headers=headers,
+    )
+    client.post(
+        "/influencer/profile/connect",
+        json={"platform": "instagram", "oauth_code": "snap-tok"},
+        headers=headers,
+    )
 
     # Verify snapshot exists in DB
     async def _check():
         from app.models.influencer import InfluencerProfile as IP
         from app.models.user import User as UserModel
+
         engine = create_async_engine(settings.database_url)
         factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             result = await session.execute(
-                select(IP).join(UserModel, IP.user_id == UserModel.id)
+                select(IP)
+                .join(UserModel, IP.user_id == UserModel.id)
                 .where(UserModel.firebase_uid == "stub-uid-a3-router-connect-snapshot")
             )
             profile = result.scalar_one_or_none()
@@ -257,16 +304,20 @@ def test_reconnect_appends_new_snapshot_row(client: TestClient):
     """Each connect call writes a new snapshot row, even for same platform."""
     jwt = _create_influencer(client, "connect-snap-append")
     headers = {"Authorization": f"Bearer {jwt}"}
-    client.put("/influencer/profile", json={"niche": "art", "bio": None, "categories": []}, headers=headers)
+    client.put(
+        "/influencer/profile", json={"niche": "art", "bio": None, "categories": []}, headers=headers
+    )
 
     async def _count_snaps_for_user() -> int:
         from app.models.influencer import InfluencerProfile as IP
         from app.models.user import User as UserModel
+
         engine = create_async_engine(settings.database_url)
         factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             result = await session.execute(
-                select(IP).join(UserModel, IP.user_id == UserModel.id)
+                select(IP)
+                .join(UserModel, IP.user_id == UserModel.id)
                 .where(UserModel.firebase_uid == "stub-uid-a3-router-connect-snap-append")
             )
             profile = result.scalar_one_or_none()
@@ -280,8 +331,16 @@ def test_reconnect_appends_new_snapshot_row(client: TestClient):
         await engine.dispose()
         return count
 
-    client.post("/influencer/profile/connect", json={"platform": "instagram", "oauth_code": "tok-a"}, headers=headers)
+    client.post(
+        "/influencer/profile/connect",
+        json={"platform": "instagram", "oauth_code": "tok-a"},
+        headers=headers,
+    )
     count_after_first = asyncio.run(_count_snaps_for_user())
-    client.post("/influencer/profile/connect", json={"platform": "instagram", "oauth_code": "tok-b"}, headers=headers)
+    client.post(
+        "/influencer/profile/connect",
+        json={"platform": "instagram", "oauth_code": "tok-b"},
+        headers=headers,
+    )
     count_after_second = asyncio.run(_count_snaps_for_user())
     assert count_after_second == count_after_first + 1

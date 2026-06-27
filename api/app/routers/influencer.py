@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,14 +21,14 @@ router = APIRouter(prefix="/influencer", tags=["Influencer"])
 
 async def _require_influencer(user: User = Depends(require_role_set)) -> User:
     if user.role != Role.influencer:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Influencer role required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Influencer role required"
+        )
     return user
 
 
 async def _get_profile_or_404(user: User, db: AsyncSession) -> InfluencerProfile:
-    result = await db.execute(
-        select(InfluencerProfile).where(InfluencerProfile.user_id == user.id)
-    )
+    result = await db.execute(select(InfluencerProfile).where(InfluencerProfile.user_id == user.id))
     profile = result.scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
@@ -65,15 +64,15 @@ async def get_profile(
     return await _build_response(profile, db)
 
 
-@router.put("/profile", response_model=ProfileResponse, summary="Create or update influencer profile")
+@router.put(
+    "/profile", response_model=ProfileResponse, summary="Create or update influencer profile"
+)
 async def put_profile(
     body: ProfileUpdateRequest,
     user: User = Depends(_require_influencer),
     db: AsyncSession = Depends(get_db),
 ) -> ProfileResponse:
-    result = await db.execute(
-        select(InfluencerProfile).where(InfluencerProfile.user_id == user.id)
-    )
+    result = await db.execute(select(InfluencerProfile).where(InfluencerProfile.user_id == user.id))
     profile = result.scalar_one_or_none()
 
     if profile is None:
